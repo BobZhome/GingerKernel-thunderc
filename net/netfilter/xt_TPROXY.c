@@ -134,25 +134,11 @@ tproxy_tg4(struct sk_buff *skb, __be32 laddr, __be16 lport,
 	 * and the current packet belongs to an already established
 	 * connection */
 	sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
-				   iph->saddr, iph->daddr,
-				   hp->source, hp->dest,
-				   skb->dev, NFT_LOOKUP_ESTABLISHED);
-
-	laddr = tproxy_laddr4(skb, laddr, iph->daddr);
-	if (!lport)
-		lport = hp->dest;
-
-	/* UDP has no TCP_TIME_WAIT state, so we never enter here */
-	if (sk && sk->sk_state == TCP_TIME_WAIT)
-		/* reopening a TIME_WAIT connection needs special handling */
-		sk = tproxy_handle_time_wait4(skb, laddr, lport, sk);
-	else if (!sk)
-		/* no, there's no established connection, check if
-		 * there's a listener on the redirected addr/port */
-		sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
-					   iph->saddr, laddr,
-					   hp->source, lport,
-					   skb->dev, NFT_LOOKUP_LISTENER);
+				   iph->saddr,
+				   tgi->laddr ? tgi->laddr : iph->daddr,
+				   hp->source,
+				   tgi->lport ? tgi->lport : hp->dest,
+				   par->in, true);
 
 	/* NOTE: assign_sock consumes our sk reference */
 	if (sk && tproxy_sk_is_transparent(sk)) {
