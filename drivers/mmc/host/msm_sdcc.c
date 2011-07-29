@@ -1822,7 +1822,6 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->max_blk_count = 65535;
 	printk("mmc->max_blk_count is [%d]\n",mmc->max_blk_count);
 	
-
 	mmc->max_req_size = 33554432;	/* MCI_DATA_LENGTH is 25 bits */
 	mmc->max_seg_size = mmc->max_req_size;
 
