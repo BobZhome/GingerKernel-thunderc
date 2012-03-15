@@ -33,7 +33,7 @@
 
 #include "smd_private.h"
 
-#define MAX_SMD_TTYS 37
+#define MAX_SMD_TTYS 32
 #define MAX_TTY_BUF_SIZE 2048
 
 static DEFINE_MUTEX(smd_tty_lock);
@@ -90,7 +90,9 @@ static void smd_tty_read(unsigned long param)
 		if (avail > MAX_TTY_BUF_SIZE)
 			avail = MAX_TTY_BUF_SIZE;
 
+		ptr = NULL;
 		avail = tty_prepare_flip_string(tty, &ptr, avail);
+
 		if (avail <= 0) {
 			if (!timer_pending(&info->buf_req_timer)) {
 				init_timer(&info->buf_req_timer);
