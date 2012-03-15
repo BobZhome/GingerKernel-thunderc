@@ -1,7 +1,7 @@
 # Script taken from Imoseyon and modified by BobZhome #
 
 CPU_JOB_NUM=4
-TOOLCHAIN=/home/bobzhome/android/android-toolchain-eabi/bin/arm-eabi-
+TOOLCHAIN=/home/bobzhome/android/android-toolchain-eabi/bin/
 TOOLCHAIN_PREFIX=arm-eabi-
 
 
@@ -16,5 +16,5 @@ cp fs/cifs/cifs.ko ../finished/;
 
 echo "COMPILING FINISHED!!!";
 read;
-make clean
+make mrproper
 
