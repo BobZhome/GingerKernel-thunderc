@@ -35,6 +35,7 @@
 #include <bcmutils.h>
 #include <linux/delay.h>
 #include <pcicfg.h>
+#include <linux/mutex.h>
 
 #define PCI_CFG_RETRY 		10
 
@@ -198,7 +199,7 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 			/* printk("alloc static buf at %x!\n", (unsigned int)bcm_static_buf); */
 		}
 		
-		init_MUTEX(&bcm_static_buf->static_sem);
+		mutex_init(&bcm_static_buf->static_sem);
 
 		
 		bcm_static_buf->buf_ptr = (unsigned char *)bcm_static_buf + STATIC_BUF_SIZE;
@@ -481,7 +482,7 @@ osl_malloc(osl_t *osh, uint size)
 			}
 			
 			bcm_static_buf->buf_use[i] = 1;
-			up(&bcm_static_buf->static_sem);
+			mutex_unlock(&bcm_static_buf->static_sem);
 
 			bzero(bcm_static_buf->buf_ptr+STATIC_BUF_SIZE*i, size);
 			if (osh)
