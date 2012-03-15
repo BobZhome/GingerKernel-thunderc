@@ -296,10 +296,6 @@ static struct fsg_lun *fsg_lun_from_dev(struct device *dev)
 #define FSG_NUM_BUFFERS    2
 #endif
 
-#define FSG_NUM_BUFFERS	4
-#else
-#define FSG_NUM_BUFFERS	2
-#endif
 
 /* Default size of buffer length. */
 #define FSG_BUFLEN	((u32)16384)

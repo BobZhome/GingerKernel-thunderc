@@ -318,32 +318,10 @@ static const char fsg_string_interface[] = "Mass Storage";
 
 #ifdef CONFIG_USB_CSW_HACK
 static int write_error_after_csw_sent;
-static int csw_hack_sent;
 #endif
 /*-------------------------------------------------------------------------*/
 
 struct fsg_dev;
-struct fsg_common;
-
-/* FSF callback functions */
-struct fsg_operations {
-	/* Callback function to call when thread exits.  If no
-	 * callback is set or it returns value lower then zero MSF
-	 * will force eject all LUNs it operates on (including those
-	 * marked as non-removable or with prevent_medium_removal flag
-	 * set). */
-	int (*thread_exits)(struct fsg_common *common);
-
-	/* Called prior to ejection.  Negative return means error,
-	 * zero means to continue with ejection, positive means not to
-	 * eject. */
-	int (*pre_eject)(struct fsg_common *common,
-			 struct fsg_lun *lun, int num);
-	/* Called after ejection.  Negative return means error, zero
-	 * or positive is just a success. */
-	int (*post_eject)(struct fsg_common *common,
-			  struct fsg_lun *lun, int num);
-};
 
 
 /* Data shared by all the FSG instances. */
@@ -361,7 +339,8 @@ struct fsg_common {
 	struct usb_ep		*ep0;		/* Copy of gadget->ep0 */
 	struct usb_request	*ep0req;	/* Copy of cdev->req */
 	unsigned int		ep0_req_tag;
-	
+	const char		*ep0req_name;
+
 	struct fsg_buffhd	*next_buffhd_to_fill;
 	struct fsg_buffhd	*next_buffhd_to_drain;
 	struct fsg_buffhd	buffhds[FSG_NUM_BUFFERS];
@@ -396,8 +375,8 @@ struct fsg_common {
 	struct completion	thread_notifier;
 	struct task_struct	*thread_task;
 
-	/* Callback functions. */
-	const struct fsg_operations	*ops;
+	/* Callback function to call when thread exits. */
+	int			(*thread_exits)(struct fsg_common *common);
 	/* Gadget's private data. */
 	void			*private_data;
 
@@ -421,8 +400,12 @@ struct fsg_config {
 	const char		*lun_name_format;
 	const char		*thread_name;
 
-	/* Callback functions. */
-	const struct fsg_operations	*ops;
+	/* Callback function to call when thread exits.  If no
+	 * callback is set or it returns value lower then zero MSF
+	 * will force eject all LUNs it operates on (including those
+	 * marked as non-removable or with prevent_medium_removal flag
+	 * set). */
+	int			(*thread_exits)(struct fsg_common *common);
 	/* Gadget's private data. */
 	void			*private_data;
 
@@ -464,7 +447,6 @@ static inline int __fsg_is_set(struct fsg_common *common,
 	if (common->fsg)
 		return 1;
 	ERROR(common, "common->fsg is NULL in %s at %u\n", func, line);
-	WARN_ON(1);
 	return 0;
 }
 
@@ -654,6 +636,8 @@ static int fsg_setup(struct usb_function *f,
 
 		/* Respond with data/status */
 		req->length = min((u16)1, w_length);
+		fsg->common->ep0req_name =
+			ctrl->bRequestType & USB_DIR_IN ? "ep0-in" : "ep0-out";
 		return ep0_queue(fsg->common);
 	}
 
@@ -879,6 +863,7 @@ static int do_write(struct fsg_common *common)
 	int			rc;
 
 #ifdef CONFIG_USB_CSW_HACK
+	int			csw_hack_sent = 0;
 	int			i;
 #endif
 	if (curlun->ro) {
@@ -1059,7 +1044,7 @@ static int do_write(struct fsg_common *common)
 write_error:
 			if ((nwritten == amount) && !csw_hack_sent) {
 				if (write_error_after_csw_sent)
-						break;
+					break;
 				/*
 				 * Check if any of the buffer is in the
 				 * busy state, if any buffer is in busy state,
@@ -1464,55 +1449,43 @@ static int do_start_stop(struct fsg_common *common)
 	} else if (!curlun->removable) {
 		curlun->sense_data = SS_INVALID_COMMAND;
 		return -EINVAL;
-	} else if ((common->cmnd[1] & ~0x01) != 0 || /* Mask away Immed */
-		   (common->cmnd[4] & ~0x03) != 0) { /* Mask LoEj, Start */
+	}
+
+	loej = common->cmnd[4] & 0x02;
+	start = common->cmnd[4] & 0x01;
+
+	/* eject code from file_storage.c:do_start_stop() */
+
+	if ((common->cmnd[1] & ~0x01) != 0 ||	  /* Mask away Immed */
+		(common->cmnd[4] & ~0x03) != 0) { /* Mask LoEj, Start */
 		curlun->sense_data = SS_INVALID_FIELD_IN_CDB;
 		return -EINVAL;
 	}
 
-	loej  = common->cmnd[4] & 0x02;
-	start = common->cmnd[4] & 0x01;
+	if (!start) {
+		/* Are we allowed to unload the media? */
+		if (curlun->prevent_medium_removal) {
+			LDBG(curlun, "unload attempt prevented\n");
+			curlun->sense_data = SS_MEDIUM_REMOVAL_PREVENTED;
+			return -EINVAL;
+		}
+		if (loej) {	/* Simulate an unload/eject */
+			up_read(&common->filesem);
+			down_write(&common->filesem);
+			fsg_lun_close(curlun);
+			up_write(&common->filesem);
+			down_read(&common->filesem);
+		}
+	} else {
 
-	/* Our emulation doesn't support mounting; the medium is
-	 * available for use as soon as it is loaded. */
-	if (start) {
+		/* Our emulation doesn't support mounting; the medium is
+		 * available for use as soon as it is loaded. */
 		if (!fsg_lun_is_open(curlun)) {
 			curlun->sense_data = SS_MEDIUM_NOT_PRESENT;
 			return -EINVAL;
 		}
-		return 0;
 	}
-
-	/* Are we allowed to unload the media? */
-	if (curlun->prevent_medium_removal) {
-		LDBG(curlun, "unload attempt prevented\n");
-		curlun->sense_data = SS_MEDIUM_REMOVAL_PREVENTED;
-		return -EINVAL;
-	}
-
-	if (!loej)
-		return 0;
-
-	/* Simulate an unload/eject */
-	if (common->ops && common->ops->pre_eject) {
-		int r = common->ops->pre_eject(common, curlun,
-					       curlun - common->luns);
-		if (unlikely(r < 0))
-			return r;
-		else if (r)
-			return 0;
-	}
-
-	up_read(&common->filesem);
-	down_write(&common->filesem);
-	fsg_lun_close(curlun);
-	up_write(&common->filesem);
-	down_read(&common->filesem);
-
-	return common->ops && common->ops->post_eject
-		? min(0, common->ops->post_eject(common, curlun,
-						 curlun - common->luns))
-		: 0;
+	return 0;
 }
 
 
@@ -1842,19 +1815,7 @@ static int send_status(struct fsg_common *common)
 
 	csw->Signature = cpu_to_le32(USB_BULK_CS_SIG);
 	csw->Tag = common->tag;
-#ifdef CONFIG_USB_CSW_HACK
-	/* Since csw is being sent early, before
-	 * writing on to storage media, need to set
-	 * residue to zero,assuming that write will succeed.
-	 */
-	if (write_error_after_csw_sent) {
-		write_error_after_csw_sent = 0;
-		csw->Residue = cpu_to_le32(common->residue);
-	} else
-		csw->Residue = 0;
-#else
 	csw->Residue = cpu_to_le32(common->residue);
-
 #ifdef CONFIG_USB_CSW_HACK
 	/* Since csw is being sent early, before
 	 * writing on to storage media, need to set
@@ -2723,10 +2684,11 @@ static int fsg_main_thread(void *common_)
 		 * need to skip sending status once again if it is a
 		 * write scsi command.
 		 */
-		if (csw_hack_sent) {
-			csw_hack_sent = 0;
+		if (!(write_error_after_csw_sent) &&
+			(common->cmnd[0] == SC_WRITE_6
+			|| common->cmnd[0] == SC_WRITE_10
+			|| common->cmnd[0] == SC_WRITE_12))
 			continue;
-		}
 #endif
 		if (send_status(common))
 			continue;
@@ -2741,8 +2703,7 @@ static int fsg_main_thread(void *common_)
 	common->thread_task = NULL;
 	spin_unlock_irq(&common->lock);
 
-	if (!common->ops || !common->ops->thread_exits
-	 || common->ops->thread_exits(common) < 0) {
+	if (!common->thread_exits || common->thread_exits(common) < 0) {
 		struct fsg_lun *curlun = common->luns;
 		unsigned i = common->nluns;
 
@@ -2818,7 +2779,6 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		common->free_storage_on_release = 0;
 	}
 
-	common->ops = cfg->ops;
 	common->private_data = cfg->private_data;
 
 	common->gadget = gadget;
@@ -2946,6 +2906,7 @@ buffhds_first_it:
 
 
 	/* Tell the thread to start working */
+	common->thread_exits = cfg->thread_exits;
 	common->thread_task =
 		kthread_create(fsg_main_thread, common,
 			       OR(cfg->thread_name, "file-storage"));
@@ -3259,8 +3220,8 @@ fsg_config_from_params(struct fsg_config *cfg,
 	cfg->product_name = 0;
 	cfg->release = 0xffff;
 
-	cfg->ops = NULL;
-	cfg->private_data = NULL;
+	cfg->thread_exits = 0;
+	cfg->private_data = 0;
 
 	/* Finalise */
 	cfg->can_stall = params->stall;
