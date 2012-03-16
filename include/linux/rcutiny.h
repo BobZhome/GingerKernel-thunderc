@@ -126,6 +126,66 @@ static inline int rcu_preempt_depth(void)
 	return 0;
 }
 
+#else /* #ifdef CONFIG_TINY_RCU */
+
+void rcu_preempt_note_context_switch(void);
+extern void exit_rcu(void);
+int rcu_preempt_needs_cpu(void);
+
+static inline int rcu_needs_cpu(int cpu)
+{
+  return rcu_preempt_needs_cpu();
+}
+
+/*
+ * Defined as macro as it is a very low level header
+ * included from areas that don't even know about current
+ * FIXME: combine with include/linux/rcutree.h into rcupdate.h.
+ */
+#define rcu_preempt_depth() (current->rcu_read_lock_nesting)
+
+#endif /* #else #ifdef CONFIG_TINY_RCU */
+
+static inline void rcu_note_context_switch(int cpu)
+{
+  rcu_sched_qs(cpu);
+  rcu_preempt_note_context_switch();
+}
+
+extern void rcu_check_callbacks(int cpu, int user);
+
+/*
+ * Return the number of grace periods.
+ */
+static inline long rcu_batches_completed(void)
+{
+	return 0;
+}
+
+/*
+ * Return the number of bottom-half grace periods.
+ */
+static inline long rcu_batches_completed_bh(void)
+{
+	return 0;
+}
+
+static inline void rcu_force_quiescent_state(void)
+{
+}
+
+static inline void rcu_bh_force_quiescent_state(void)
+{
+}
+
+static inline void rcu_sched_force_quiescent_state(void)
+{
+}
+
+static inline void rcu_cpu_stall_reset(void)
+{
+}
+
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 
 extern int rcu_scheduler_active __read_mostly;
