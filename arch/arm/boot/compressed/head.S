@@ -582,6 +582,44 @@ __common_mmu_cache_on:
 #endif
 
 /*
+ * All code following this line is relocatable.  It is relocated by
+ * the above code to the end of the decompressed kernel image and
+ * executed there.  During this time, we have no stacks.
+ *
+ * r0     = decompressed kernel length
+ * r1-r3  = unused
+ * r4     = kernel execution address
+ * r5     = decompressed kernel start
+ * r7     = architecture ID
+ * r8     = atags pointer
+ * r9-r12,r14 = corrupted
+ */
+		.align	5
+reloc_start:	add	r9, r5, r0
+		sub	r9, r9, #128		@ do not copy the stack
+		debug_reloc_start
+		mov	r1, r4
+1:
+		.rept	4
+		ldmia	r5!, {r0, r2, r3, r10 - r12, r14}	@ relocate kernel
+		stmia	r1!, {r0, r2, r3, r10 - r12, r14}
+		.endr
+
+		cmp	r5, r9
+		blo	1b
+		mov	sp, r1
+		add	sp, sp, #128		@ relocate the stack
+		debug_reloc_end
+
+call_kernel:	bl	cache_clean_flush
+		bl	cache_off
+		mov	r0, #0			@ must be zero
+		mov	r1, r7			@ restore architecture number
+		mov	r2, r8			@ restore atags pointer
+ ARM(		mov	pc, r4	)		@ call kernel
+ THUMB(		bx	r4	)		@ entry point is always ARM
+
+/*
  * Here follow the relocatable cache support functions for the
  * various processors.  This is a generic hook for locating an
  * entry and jumping to an instruction at the specified offset
