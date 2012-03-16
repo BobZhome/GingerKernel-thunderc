@@ -1435,9 +1435,8 @@ EXPORT_SYMBOL(smsm_reset_modem);
 
 void smsm_reset_modem_cont(void)
 {
-	unsigned long addr = smd_info.state + item * 4;
 	unsigned long flags;
-	unsigned state;
+	uint32_t state;
 
 	if (!smsm_info.state)
 		return;
