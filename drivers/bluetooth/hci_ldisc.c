@@ -564,6 +564,7 @@ static int __init hci_uart_init(void)
 #endif
 #ifdef CONFIG_BT_HCIUART_IBS
 	ibs_init();
+#endif
 #ifdef CONFIG_BT_HCIUART_ATH3K
 	ath_init();
 #endif
@@ -586,6 +587,7 @@ static void __exit hci_uart_exit(void)
 #endif
 #ifdef CONFIG_BT_HCIUART_IBS
 	ibs_deinit();
+#endif
 #ifdef CONFIG_BT_HCIUART_ATH3K
 	ath_deinit();
 #endif
