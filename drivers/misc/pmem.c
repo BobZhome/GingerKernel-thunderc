@@ -648,13 +648,12 @@ static int pmem_free_buddy_bestfit(int id, int index)
 	 * repeat until the buddy is not free or end of the bitmap is reached
 	 */
 	do {
-		int buddy = PMEM_BUDDY_INDEX(id, curr);
+		buddy = PMEM_BUDDY_INDEX(id, curr);
 		if (buddy < pmem[id].num_entries &&
-		    PMEM_IS_FREE_BUDDY(id, buddy) &&
-		    PMEM_BUDDY_ORDER(id, buddy) ==
-				PMEM_BUDDY_ORDER(id, curr)) {
-			PMEM_BUDDY_ORDER(id, buddy)++;
-			PMEM_BUDDY_ORDER(id, curr)++;
+					PMEM_IS_FREE(id, buddy) &&
+				PMEM_ORDER(id, buddy) == PMEM_ORDER(id, curr)) {
+			PMEM_ORDER(id, buddy)++;
+			PMEM_ORDER(id, curr)++;
 			curr = min(buddy, curr);
 		} else {
 			break;
