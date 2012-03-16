@@ -7331,7 +7331,16 @@ wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void* data)
 		cmd = IWEVREGISTERED;
 		break;
 	case WLC_E_ROAM:
-		if (status != WLC_E_STATUS_SUCCESS) {
+		if (status == WLC_E_STATUS_SUCCESS) {
+			WL_ASSOC(("%s: WLC_E_ROAM: success\n", __FUNCTION__));
+#if defined(ROAM_NOT_USED)
+			roam_no_success_send = FALSE;
+			roam_no_success = 0;
+#endif
+			goto wl_iw_event_end;
+		}
+#if defined(ROAM_NOT_USED)
+		else if (status == WLC_E_STATUS_NO_NETWORKS) {
 			roam_no_success++;
 			if ((roam_no_success == 3) && (roam_no_success_send == FALSE)) {
 
@@ -7534,7 +7543,6 @@ wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void* data)
 #endif
 
 #if WIRELESS_EXT > 14
-	
 	memset(extra, 0, sizeof(extra));
 	if (wl_iw_check_conn_fail(e, extra, sizeof(extra))) {
 		cmd = IWEVCUSTOM;
