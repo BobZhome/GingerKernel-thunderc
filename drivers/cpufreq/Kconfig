@@ -112,16 +112,31 @@ config CPU_FREQ_DEFAULT_GOV_CONSERVATIVE
 	  driver. Fallback governor will be the performance governor.
 
 config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
-	bool "InteractiveX"
+	bool "interactive"
 	select CPU_FREQ_GOV_INTERACTIVE
 	help
-		Use the CPUFreq governor 'InteractiveX' as default.
+	  Use the 'interactive' governor as default. This gets full cpu frequency
+	  scaling for workloads that are latency sensitive, typically interactive
+	  workloads.
+
+config CPU_FREQ_DEFAULT_GOV_INTERACTIVEX
+	bool "InteractiveX"
+	select CPU_FREQ_GOV_INTERACTIVEX
+	help
+	  Use the CPUFreq governor 'InteractiveX' as default.
+
+config CPU_FREQ_DEFAULT_GOV_SMARTASS
+	bool "smartass"
+	select CPU_FREQ_GOV_SMARTASS
+	select CPU_FREQ_GOV_PERFORMANCE
+	help
+	  Use the CPUFreq governor 'smartass' as default.
 
 config CPU_FREQ_DEFAULT_GOV_SMARTASS2
 	bool "Smartass2"
 	select CPU_FREQ_GOV_SMARTASS2
 	help
-		Use the CPUFreq governor 'Smartass2' as default.
+	  Use the CPUFreq governor 'Smartass2' as default.
 
 config CPU_FREQ_DEFAULT_GOV_MSM7K
 	bool "msm7k"
@@ -145,20 +160,11 @@ config CPU_FREQ_GOV_PERFORMANCE
 	  If in doubt, say Y.
 
 config CPU_FREQ_GOV_INTERACTIVE
-	tristate "'InteractiveX' cpufreq policy governor"
-	depends on CPU_FREQ
+	tristate "'interactive' cpufreq policy governor"
 	help
-		'InteractiveX' - Modified version of interactive with sleep+wake code.
-
-		If in doubt, say Y.
-
-config CPU_FREQ_GOV_SMARTASS2
-	tristate "'Smartass2' cpufreq governor"
-	depends on CPU_FREQ
-	help
-		'Smartass2' - a slightly more aggressive Smartass governor.
-
-		If in doubt, say N.
+	  'interactive' - This driver adds a dynamic cpufreq policy governor.
+	  Designed for low latency burst workloads. Scaling it done when coming
+	  out of idle instead of polling.
 
 config CPU_FREQ_GOV_SCARY
 	tristate "'scary' cpufreq governor"
@@ -252,5 +258,41 @@ config CPU_FREQ_GOV_MSM7K
 		are not appropriate for the general conservative driver.
 
 		If in doubt, say N.
+
+config CPU_FREQ_GOV_INTERACTIVEX
+	tristate "'interactiveX' cpufreq policy governor"
+	help
+	  'InteractiveX' - Modified version of interactive with sleep+wake code.
+
+	  If in doubt, say Y.
+
+config CPU_FREQ_GOV_SMARTASS2
+	tristate "'smartass2' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'Smartass2' - a slighly more aggressive smartass governor
+
+	  If in doubt, say Y.
+
+config CPU_FREQ_GOV_SMARTASS
+	tristate "'smartass' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'smartass' - a "smart" optimized governor for the hero!
+
+	  If in doubt, say N.
+
+config CPU_FREQ_MIN_TICKS
+	int "Ticks between governor polling interval."
+	default 10
+	help
+	  Minimum number of ticks between polling interval for governors.
+
+config CPU_FREQ_SAMPLING_LATENCY_MULTIPLIER
+	int "Sampling rate multiplier for governors."
+	default 1000
+	help
+	  Sampling latency rate multiplied by the cpu switch latency.
+	  Affects governor polling.
 
 endif	# CPU_FREQ
