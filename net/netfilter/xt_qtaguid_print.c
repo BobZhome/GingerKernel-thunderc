@@ -9,6 +9,7 @@
  */
 
 /*
+<<<<<<< HEAD
  * Most of the functions in this file just waste time if DEBUG is not defined.
  * The matching xt_qtaguid_print.h will static inline empty funcs if the needed
  * debug flags ore not defined.
@@ -16,6 +17,11 @@
  * hobble allong just pretending to do the requested work.
  */
 
+=======
+ * There are run-time debug flags enabled via the debug_mask module param, or
+ * via the DEFAULT_DEBUG_MASK. See xt_qtaguid_internal.h.
+ */
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 #define DEBUG
 
 #include <linux/fs.h>
@@ -29,6 +35,7 @@
 #include "xt_qtaguid_internal.h"
 #include "xt_qtaguid_print.h"
 
+<<<<<<< HEAD
 #ifdef DDEBUG
 
 static void _bug_on_err_or_null(void *ptr)
@@ -51,16 +58,32 @@ char *pp_tag_t(tag_t *tag)
 				tag, *tag, get_uid_from_tag(*tag));
 	_bug_on_err_or_null(res);
 	return res;
+=======
+char *pp_tag_t(tag_t *tag)
+{
+	if (!tag)
+		return kasprintf(GFP_ATOMIC, "tag_t@null{}");
+	return kasprintf(GFP_ATOMIC,
+			 "tag_t@%p{tag=0x%llx, uid=%u}",
+			 tag, *tag, get_uid_from_tag(*tag));
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 }
 
 char *pp_data_counters(struct data_counters *dc, bool showValues)
 {
+<<<<<<< HEAD
 	char *res;
 
 	if (!dc)
 		res = kasprintf(GFP_ATOMIC, "data_counters@null{}");
 	else if (showValues)
 		res = kasprintf(
+=======
+	if (!dc)
+		return kasprintf(GFP_ATOMIC, "data_counters@null{}");
+	if (showValues)
+		return kasprintf(
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 			GFP_ATOMIC, "data_counters@%p{"
 			"set0{"
 			"rx{"
@@ -106,9 +129,13 @@ char *pp_data_counters(struct data_counters *dc, bool showValues)
 			dc->bpc[1][IFS_TX][IFS_PROTO_OTHER].bytes,
 			dc->bpc[1][IFS_TX][IFS_PROTO_OTHER].packets);
 	else
+<<<<<<< HEAD
 		res = kasprintf(GFP_ATOMIC, "data_counters@%p{...}", dc);
 	_bug_on_err_or_null(res);
 	return res;
+=======
+		return kasprintf(GFP_ATOMIC, "data_counters@%p{...}", dc);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 }
 
 char *pp_tag_node(struct tag_node *tn)
@@ -116,16 +143,24 @@ char *pp_tag_node(struct tag_node *tn)
 	char *tag_str;
 	char *res;
 
+<<<<<<< HEAD
 	if (!tn) {
 		res = kasprintf(GFP_ATOMIC, "tag_node@null{}");
 		_bug_on_err_or_null(res);
 		return res;
 	}
+=======
+	if (!tn)
+		return kasprintf(GFP_ATOMIC, "tag_node@null{}");
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	tag_str = pp_tag_t(&tn->tag);
 	res = kasprintf(GFP_ATOMIC,
 			"tag_node@%p{tag=%s}",
 			tn, tag_str);
+<<<<<<< HEAD
 	_bug_on_err_or_null(res);
+=======
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	kfree(tag_str);
 	return res;
 }
@@ -135,16 +170,24 @@ char *pp_tag_ref(struct tag_ref *tr)
 	char *tn_str;
 	char *res;
 
+<<<<<<< HEAD
 	if (!tr) {
 		res = kasprintf(GFP_ATOMIC, "tag_ref@null{}");
 		_bug_on_err_or_null(res);
 		return res;
 	}
+=======
+	if (!tr)
+		return kasprintf(GFP_ATOMIC, "tag_ref@null{}");
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	tn_str = pp_tag_node(&tr->tn);
 	res = kasprintf(GFP_ATOMIC,
 			"tag_ref@%p{%s, num_sock_tags=%d}",
 			tr, tn_str, tr->num_sock_tags);
+<<<<<<< HEAD
 	_bug_on_err_or_null(res);
+=======
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	kfree(tn_str);
 	return res;
 }
@@ -156,18 +199,26 @@ char *pp_tag_stat(struct tag_stat *ts)
 	char *parent_counters_str;
 	char *res;
 
+<<<<<<< HEAD
 	if (!ts) {
 		res = kasprintf(GFP_ATOMIC, "tag_stat@null{}");
 		_bug_on_err_or_null(res);
 		return res;
 	}
+=======
+	if (!ts)
+		return kasprintf(GFP_ATOMIC, "tag_stat@null{}");
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	tn_str = pp_tag_node(&ts->tn);
 	counters_str = pp_data_counters(&ts->counters, true);
 	parent_counters_str = pp_data_counters(ts->parent_counters, false);
 	res = kasprintf(GFP_ATOMIC,
 			"tag_stat@%p{%s, counters=%s, parent_counters=%s}",
 			ts, tn_str, counters_str, parent_counters_str);
+<<<<<<< HEAD
 	_bug_on_err_or_null(res);
+=======
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	kfree(tn_str);
 	kfree(counters_str);
 	kfree(parent_counters_str);
@@ -176,6 +227,7 @@ char *pp_tag_stat(struct tag_stat *ts)
 
 char *pp_iface_stat(struct iface_stat *is)
 {
+<<<<<<< HEAD
 	char *res;
 	if (!is)
 		res = kasprintf(GFP_ATOMIC, "iface_stat@null{}");
@@ -212,6 +264,28 @@ char *pp_iface_stat(struct iface_stat *is)
 				is->proc_ptr);
 	_bug_on_err_or_null(res);
 	return res;
+=======
+	if (!is)
+		return kasprintf(GFP_ATOMIC, "iface_stat@null{}");
+	return kasprintf(GFP_ATOMIC, "iface_stat@%p{"
+			 "list=list_head{...}, "
+			 "ifname=%s, "
+			 "rx_bytes=%llu, "
+			 "rx_packets=%llu, "
+			 "tx_bytes=%llu, "
+			 "tx_packets=%llu, "
+			 "active=%d, "
+			 "proc_ptr=%p, "
+			 "tag_stat_tree=rb_root{...}}",
+			 is,
+			 is->ifname,
+			 is->rx_bytes,
+			 is->rx_packets,
+			 is->tx_bytes,
+			 is->tx_packets,
+			 is->active,
+			 is->proc_ptr);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 }
 
 char *pp_sock_tag(struct sock_tag *st)
@@ -219,11 +293,16 @@ char *pp_sock_tag(struct sock_tag *st)
 	char *tag_str;
 	char *res;
 
+<<<<<<< HEAD
 	if (!st) {
 		res = kasprintf(GFP_ATOMIC, "sock_tag@null{}");
 		_bug_on_err_or_null(res);
 		return res;
 	}
+=======
+	if (!st)
+		return kasprintf(GFP_ATOMIC, "sock_tag@null{}");
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	tag_str = pp_tag_t(&st->tag);
 	res = kasprintf(GFP_ATOMIC, "sock_tag@%p{"
 			"sock_node=rb_node{...}, "
@@ -232,7 +311,10 @@ char *pp_sock_tag(struct sock_tag *st)
 			st, st->sk, st->socket, atomic_long_read(
 				&st->socket->file->f_count),
 			st->pid, tag_str);
+<<<<<<< HEAD
 	_bug_on_err_or_null(res);
+=======
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	kfree(tag_str);
 	return res;
 }
@@ -242,6 +324,7 @@ char *pp_uid_tag_data(struct uid_tag_data *utd)
 	char *res;
 
 	if (!utd)
+<<<<<<< HEAD
 		res = kasprintf(GFP_ATOMIC, "uid_tag_data@null{}");
 	else
 		res = kasprintf(GFP_ATOMIC, "uid_tag_data@%p{"
@@ -252,6 +335,15 @@ char *pp_uid_tag_data(struct uid_tag_data *utd)
 				utd, utd->uid,
 				utd->num_active_tags, utd->num_pqd);
 	_bug_on_err_or_null(res);
+=======
+		return kasprintf(GFP_ATOMIC, "uid_tag_data@null{}");
+	res = kasprintf(GFP_ATOMIC, "uid_tag_data@%p{"
+			"uid=%u, num_active_acct_tags=%d, "
+			"tag_node_tree=rb_root{...}, "
+			"proc_qtu_data_tree=rb_root{...}}",
+			utd, utd->uid,
+			utd->num_active_tags);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	return res;
 }
 
@@ -260,11 +352,16 @@ char *pp_proc_qtu_data(struct proc_qtu_data *pqd)
 	char *parent_tag_data_str;
 	char *res;
 
+<<<<<<< HEAD
 	if (!pqd) {
 		res = kasprintf(GFP_ATOMIC, "proc_qtu_data@null{}");
 		_bug_on_err_or_null(res);
 		return res;
 	}
+=======
+	if (!pqd)
+		return kasprintf(GFP_ATOMIC, "proc_qtu_data@null{}");
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	parent_tag_data_str = pp_uid_tag_data(pqd->parent_tag_data);
 	res = kasprintf(GFP_ATOMIC, "proc_qtu_data@%p{"
 			"node=rb_node{...}, pid=%u, "
@@ -272,7 +369,10 @@ char *pp_proc_qtu_data(struct proc_qtu_data *pqd)
 			"sock_tag_list=list_head{...}}",
 			pqd, pqd->pid, parent_tag_data_str
 		);
+<<<<<<< HEAD
 	_bug_on_err_or_null(res);
+=======
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	kfree(parent_tag_data_str);
 	return res;
 }
@@ -285,6 +385,7 @@ void prdebug_sock_tag_tree(int indent_level,
 	struct sock_tag *sock_tag_entry;
 	char *str;
 
+<<<<<<< HEAD
 	if (!unlikely(qtaguid_debug_mask & DDEBUG_MASK))
 		return;
 
@@ -296,18 +397,30 @@ void prdebug_sock_tag_tree(int indent_level,
 
 	str = "sock_tag_tree=rb_root{";
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	str = "sock_tag_tree=rb_root{";
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	indent_level++;
 	for (node = rb_first(sock_tag_tree);
 	     node;
 	     node = rb_next(node)) {
 		sock_tag_entry = rb_entry(node, struct sock_tag, sock_node);
 		str = pp_sock_tag(sock_tag_entry);
+<<<<<<< HEAD
 		pr_debug("%*d: %s,\n", indent_level*2, indent_level, str);
+=======
+		CT_DEBUG("%*d: %s,\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 		kfree(str);
 	}
 	indent_level--;
 	str = "}";
+<<<<<<< HEAD
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 }
 
 void prdebug_sock_tag_list(int indent_level,
@@ -316,6 +429,7 @@ void prdebug_sock_tag_list(int indent_level,
 	struct sock_tag *sock_tag_entry;
 	char *str;
 
+<<<<<<< HEAD
 	if (!unlikely(qtaguid_debug_mask & DDEBUG_MASK))
 		return;
 
@@ -331,11 +445,23 @@ void prdebug_sock_tag_list(int indent_level,
 	list_for_each_entry(sock_tag_entry, sock_tag_list, list) {
 		str = pp_sock_tag(sock_tag_entry);
 		pr_debug("%*d: %s,\n", indent_level*2, indent_level, str);
+=======
+	str = "sock_tag_list=list_head{";
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+	indent_level++;
+	list_for_each_entry(sock_tag_entry, sock_tag_list, list) {
+		str = pp_sock_tag(sock_tag_entry);
+		CT_DEBUG("%*d: %s,\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 		kfree(str);
 	}
 	indent_level--;
 	str = "}";
+<<<<<<< HEAD
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 }
 
 void prdebug_proc_qtu_data_tree(int indent_level,
@@ -345,6 +471,7 @@ void prdebug_proc_qtu_data_tree(int indent_level,
 	struct rb_node *node;
 	struct proc_qtu_data *proc_qtu_data_entry;
 
+<<<<<<< HEAD
 	if (!unlikely(qtaguid_debug_mask & DDEBUG_MASK))
 		return;
 
@@ -356,6 +483,10 @@ void prdebug_proc_qtu_data_tree(int indent_level,
 
 	str = "proc_qtu_data_tree=rb_root{";
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	str = "proc_qtu_data_tree=rb_root{";
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	indent_level++;
 	for (node = rb_first(proc_qtu_data_tree);
 	     node;
@@ -364,7 +495,11 @@ void prdebug_proc_qtu_data_tree(int indent_level,
 					       struct proc_qtu_data,
 					       node);
 		str = pp_proc_qtu_data(proc_qtu_data_entry);
+<<<<<<< HEAD
 		pr_debug("%*d: %s,\n", indent_level*2, indent_level,
+=======
+		CT_DEBUG("%*d: %s,\n", indent_level*2, indent_level,
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 			 str);
 		kfree(str);
 		indent_level++;
@@ -375,7 +510,11 @@ void prdebug_proc_qtu_data_tree(int indent_level,
 	}
 	indent_level--;
 	str = "}";
+<<<<<<< HEAD
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 }
 
 void prdebug_tag_ref_tree(int indent_level, struct rb_root *tag_ref_tree)
@@ -384,6 +523,7 @@ void prdebug_tag_ref_tree(int indent_level, struct rb_root *tag_ref_tree)
 	struct rb_node *node;
 	struct tag_ref *tag_ref_entry;
 
+<<<<<<< HEAD
 	if (!unlikely(qtaguid_debug_mask & DDEBUG_MASK))
 		return;
 
@@ -395,6 +535,10 @@ void prdebug_tag_ref_tree(int indent_level, struct rb_root *tag_ref_tree)
 
 	str = "tag_ref_tree{";
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	str = "tag_ref_tree{";
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	indent_level++;
 	for (node = rb_first(tag_ref_tree);
 	     node;
@@ -403,13 +547,21 @@ void prdebug_tag_ref_tree(int indent_level, struct rb_root *tag_ref_tree)
 					 struct tag_ref,
 					 tn.node);
 		str = pp_tag_ref(tag_ref_entry);
+<<<<<<< HEAD
 		pr_debug("%*d: %s,\n", indent_level*2, indent_level,
+=======
+		CT_DEBUG("%*d: %s,\n", indent_level*2, indent_level,
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 			 str);
 		kfree(str);
 	}
 	indent_level--;
 	str = "}";
+<<<<<<< HEAD
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 }
 
 void prdebug_uid_tag_data_tree(int indent_level,
@@ -419,6 +571,7 @@ void prdebug_uid_tag_data_tree(int indent_level,
 	struct rb_node *node;
 	struct uid_tag_data *uid_tag_data_entry;
 
+<<<<<<< HEAD
 	if (!unlikely(qtaguid_debug_mask & DDEBUG_MASK))
 		return;
 
@@ -430,6 +583,10 @@ void prdebug_uid_tag_data_tree(int indent_level,
 
 	str = "uid_tag_data_tree=rb_root{";
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	str = "uid_tag_data_tree=rb_root{";
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	indent_level++;
 	for (node = rb_first(uid_tag_data_tree);
 	     node;
@@ -437,7 +594,11 @@ void prdebug_uid_tag_data_tree(int indent_level,
 		uid_tag_data_entry = rb_entry(node, struct uid_tag_data,
 					      node);
 		str = pp_uid_tag_data(uid_tag_data_entry);
+<<<<<<< HEAD
 		pr_debug("%*d: %s,\n", indent_level*2, indent_level, str);
+=======
+		CT_DEBUG("%*d: %s,\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 		kfree(str);
 		if (!RB_EMPTY_ROOT(&uid_tag_data_entry->tag_ref_tree)) {
 			indent_level++;
@@ -448,7 +609,11 @@ void prdebug_uid_tag_data_tree(int indent_level,
 	}
 	indent_level--;
 	str = "}";
+<<<<<<< HEAD
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 }
 
 void prdebug_tag_stat_tree(int indent_level,
@@ -458,6 +623,7 @@ void prdebug_tag_stat_tree(int indent_level,
 	struct rb_node *node;
 	struct tag_stat *ts_entry;
 
+<<<<<<< HEAD
 	if (!unlikely(qtaguid_debug_mask & DDEBUG_MASK))
 		return;
 
@@ -469,19 +635,31 @@ void prdebug_tag_stat_tree(int indent_level,
 
 	str = "tag_stat_tree{";
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	str = "tag_stat_tree{";
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	indent_level++;
 	for (node = rb_first(tag_stat_tree);
 	     node;
 	     node = rb_next(node)) {
 		ts_entry = rb_entry(node, struct tag_stat, tn.node);
 		str = pp_tag_stat(ts_entry);
+<<<<<<< HEAD
 		pr_debug("%*d: %s\n", indent_level*2, indent_level,
+=======
+		CT_DEBUG("%*d: %s\n", indent_level*2, indent_level,
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 			 str);
 		kfree(str);
 	}
 	indent_level--;
 	str = "}";
+<<<<<<< HEAD
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 }
 
 void prdebug_iface_stat_list(int indent_level,
@@ -490,6 +668,7 @@ void prdebug_iface_stat_list(int indent_level,
 	char *str;
 	struct iface_stat *iface_entry;
 
+<<<<<<< HEAD
 	if (!unlikely(qtaguid_debug_mask & DDEBUG_MASK))
 		return;
 
@@ -505,6 +684,14 @@ void prdebug_iface_stat_list(int indent_level,
 	list_for_each_entry(iface_entry, iface_stat_list, list) {
 		str = pp_iface_stat(iface_entry);
 		pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
+=======
+	str = "iface_stat_list=list_head{";
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+	indent_level++;
+	list_for_each_entry(iface_entry, iface_stat_list, list) {
+		str = pp_iface_stat(iface_entry);
+		CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 		kfree(str);
 
 		spin_lock_bh(&iface_entry->tag_stat_list_lock);
@@ -518,6 +705,7 @@ void prdebug_iface_stat_list(int indent_level,
 	}
 	indent_level--;
 	str = "}";
+<<<<<<< HEAD
 	pr_debug("%*d: %s\n", indent_level*2, indent_level, str);
 }
 
@@ -553,4 +741,7 @@ const char *netdev_evt_str(int netdev_event)
 	    || netdev_event >= ARRAY_SIZE(netdev_event_strings))
 		return "bad event num";
 	return netdev_event_strings[netdev_event];
+=======
+	CT_DEBUG("%*d: %s\n", indent_level*2, indent_level, str);
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 }

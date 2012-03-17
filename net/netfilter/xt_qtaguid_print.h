@@ -12,8 +12,11 @@
 
 #include "xt_qtaguid_internal.h"
 
+<<<<<<< HEAD
 #ifdef DDEBUG
 
+=======
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 char *pp_tag_t(tag_t *tag);
 char *pp_data_counters(struct data_counters *dc, bool showValues);
 char *pp_tag_node(struct tag_node *tn);
@@ -38,6 +41,7 @@ void prdebug_tag_stat_tree(int indent_level,
 			   struct rb_root *tag_stat_tree);
 void prdebug_iface_stat_list(int indent_level,
 			     struct list_head *iface_stat_list);
+<<<<<<< HEAD
 
 #else
 
@@ -117,4 +121,6 @@ void prdebug_iface_stat_list(int indent_level,
 #endif
 /*------------------------------------------*/
 const char *netdev_evt_str(int netdev_event);
+=======
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 #endif  /* ifndef __XT_QTAGUID_PRINT_H__ */

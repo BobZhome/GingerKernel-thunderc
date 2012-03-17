@@ -15,6 +15,7 @@
 #include <linux/spinlock_types.h>
 #include <linux/workqueue.h>
 
+<<<<<<< HEAD
 /* Iface handling */
 #define IDEBUG_MASK (1<<0)
 /* Iptable Matching. Per packet. */
@@ -25,10 +26,24 @@
 #define CDEBUG_MASK (1<<3)
 /* dev and resource tracking */
 #define DDEBUG_MASK (1<<4)
+=======
+/* Define/comment out these *DEBUG to compile in/out the pr_debug calls. */
+/* Iface handling */
+#define IDEBUG
+/* Iptable Matching. Per packet. */
+#define MDEBUG
+/* Red-black tree handling. Per packet. */
+#define RDEBUG
+/* procfs ctrl/stats handling */
+#define CDEBUG
+/* dev and resource tracking */
+#define DDEBUG
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 
 /* E.g (IDEBUG_MASK | CDEBUG_MASK | DDEBUG_MASK) */
 #define DEFAULT_DEBUG_MASK 0
 
+<<<<<<< HEAD
 /*
  * (Un)Define these *DEBUG to compile out/in the pr_debug calls.
  * All undef: text size ~ 0x3030; all def: ~ 0x4404.
@@ -42,6 +57,18 @@
 #define MSK_DEBUG(mask, ...) do {                           \
 		if (unlikely(qtaguid_debug_mask & (mask)))  \
 			pr_debug(__VA_ARGS__);              \
+=======
+
+#define IDEBUG_MASK (1<<0)
+#define MDEBUG_MASK (1<<1)
+#define RDEBUG_MASK (1<<2)
+#define CDEBUG_MASK (1<<3)
+#define DDEBUG_MASK (1<<4)
+
+#define MSK_DEBUG(mask, ...) do {                       \
+		if (unlikely(debug_mask & (mask)))      \
+			pr_debug(__VA_ARGS__);          \
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	} while (0)
 #ifdef IDEBUG
 #define IF_DEBUG(...) MSK_DEBUG(IDEBUG_MASK, __VA_ARGS__)
@@ -69,7 +96,11 @@
 #define DR_DEBUG(...) no_printk(__VA_ARGS__)
 #endif
 
+<<<<<<< HEAD
 extern uint qtaguid_debug_mask;
+=======
+extern uint debug_mask;
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 
 /*---------------------------------------------------------------------------*/
 /*
@@ -198,6 +229,7 @@ struct tag_stat {
 struct iface_stat {
 	struct list_head list;  /* in iface_stat_list */
 	char *ifname;
+<<<<<<< HEAD
 	bool active;
 	/* net_dev is only valid for active iface_stat */
 	struct net_device *net_dev;
@@ -215,6 +247,13 @@ struct iface_stat {
 	/* last_known is usable when last_known_valid is true */
 	bool last_known_valid;
 
+=======
+	uint64_t rx_bytes;
+	uint64_t rx_packets;
+	uint64_t tx_bytes;
+	uint64_t tx_packets;
+	bool active;
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	struct proc_dir_entry *proc_ptr;
 
 	struct rb_root tag_stat_tree;
@@ -252,6 +291,7 @@ struct qtaguid_event_counts {
 	atomic64_t counter_set_changes;
 	atomic64_t delete_cmds;
 	atomic64_t iface_events;  /* Number of NETDEV_* events handled */
+<<<<<<< HEAD
 
 	atomic64_t match_calls;   /* Number of times iptables called mt */
 	/*
@@ -263,16 +303,29 @@ struct qtaguid_event_counts {
 	/* The connection tracker had or didn't have the sk. */
 	atomic64_t match_found_sk_in_ct;
 	atomic64_t match_found_no_sk_in_ct;
+=======
+	/*
+	 * match_found_sk_*: numbers related to the netfilter matching
+	 * function finding a sock for the sk_buff.
+	 */
+	atomic64_t match_found_sk;   /* An sk was already in the sk_buff. */
+	/* The connection tracker had the sk. */
+	atomic64_t match_found_sk_in_ct;
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	/*
 	 * No sk could be found. No apparent owner. Could happen with
 	 * unsolicited traffic.
 	 */
+<<<<<<< HEAD
 	atomic64_t match_no_sk;
 	/*
 	 * The file ptr in the sk_socket wasn't there.
 	 * This might happen for traffic while the socket is being closed.
 	 */
 	atomic64_t match_no_sk_file;
+=======
+	atomic64_t match_found_sk_none;
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 };
 
 /* Track the set active_set for the given tag. */
@@ -297,8 +350,11 @@ struct uid_tag_data {
 	 * For the uid, how many accounting tags have been set.
 	 */
 	int num_active_tags;
+<<<<<<< HEAD
 	/* Track the number of proc_qtu_data that reference it */
 	int num_pqd;
+=======
+>>>>>>> 521364d... netfilter: xt_qtaguid: 1st pass at tracking tag based data resources
 	struct rb_root tag_ref_tree;
 	/* No tag_node_tree_lock; use uid_tag_data_tree_lock */
 };
