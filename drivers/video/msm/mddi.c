@@ -492,45 +492,6 @@ static int mddi_resume(struct platform_device *pdev)
 
 	if (!mddi_is_in_suspend)
 		return 0;
-	resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!resource) {
-		PR_DISP_ERR("mddi: no associated mem resource!\n");
-		return -ENOMEM;
-	}
-	mddi->base = ioremap(resource->start, resource_size(resource));
-	if (!mddi->base) {
-		PR_DISP_ERR("mddi: failed to remap base!\n");
-		ret = -EINVAL;
-		goto error_ioremap;
-	}
-	resource = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!resource) {
-		PR_DISP_ERR("mddi: no associated irq resource!\n");
-		ret = -EINVAL;
-		goto error_get_irq_resource;
-	}
-	mddi->irq = resource->start;
-	PR_DISP_INFO("mddi: init() base=0x%p irq=%d\n", mddi->base,
-	       mddi->irq);
-	mddi->power_client = pdata->power_client;
-	if (pdata->type != MSM_MDP_MDDI_TYPE_I)
-		mddi->type = pdata->type;
-
-	mutex_init(&mddi->reg_write_lock);
-	mutex_init(&mddi->reg_read_lock);
-	spin_lock_init(&mddi->int_lock);
-	init_waitqueue_head(&mddi->int_wait);
-
-	wake_lock_init(&mddi->idle_lock, WAKE_LOCK_IDLE, "mddi_idle_lock");
-	wake_lock_init(&mddi->link_active_idle_lock, WAKE_LOCK_IDLE,
-		       "mddi_link_active_idle_lock");
-
-	ret = mddi_clk_setup(pdev, mddi, pdata->clk_rate);
-	if (ret) {
-		PR_DISP_ERR("mddi: failed to setup clock!\n");
-		goto error_clk_setup;
-	}
->>>>>>> 7bdf9df... Fix iomap resource size miscalculations
 
 	mddi_is_in_suspend = 0;
 
