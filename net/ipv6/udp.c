@@ -320,6 +320,8 @@ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
 				 udptable);
 }
 
+EXPORT_SYMBOL_GPL(udp6_lib_lookup);
+
 /*
  * 	This should be easy, if there is something there we
  * 	return it, otherwise we block.
@@ -445,8 +447,11 @@ csum_copy_err:
 	}
 	unlock_sock_fast(sk, slow);
 
-	if (flags & MSG_DONTWAIT)
+	if (noblock)
 		return -EAGAIN;
+
+	/* starting over for a new packet */
+	msg->msg_flags &= ~MSG_TRUNC;
 	goto try_again;
 }
 
