@@ -985,9 +985,6 @@ dhd_pktfilter_offload_enable(dhd_pub_t * dhd, char *arg, int enable, int master_
 	wl_pkt_filter_enable_t	enable_parm;
 	wl_pkt_filter_enable_t	* pkt_filterp;
 
-	if (!arg)
-		return;
-
 	if (!(arg_save = MALLOC(dhd->osh, strlen(arg) + 1))) {
 		DHD_ERROR(("%s: kmalloc failed\n", __FUNCTION__));
 		goto fail;
@@ -1060,9 +1057,6 @@ dhd_pktfilter_offload_set(dhd_pub_t * dhd, char *arg)
 	int					i = 0;
 	char				*arg_save = 0, *arg_org = 0;
 #define BUF_SIZE		2048
-
-	if (!arg)
-		return;
 
 	if (!(arg_save = MALLOC(dhd->osh, strlen(arg) + 1))) {
 		DHD_ERROR(("%s: kmalloc failed\n", __FUNCTION__));
@@ -1783,93 +1777,7 @@ fail:
 	return status;
 }
 
-#endif
-
-/*
- * returns = TRUE if associated, FALSE if not associated
- */
-bool is_associated(dhd_pub_t *dhd, void *bss_buf)
-{
-	char bssid[ETHER_ADDR_LEN], zbuf[ETHER_ADDR_LEN];
-	int ret = -1;
-
-	bzero(bssid, ETHER_ADDR_LEN);
-	bzero(zbuf, ETHER_ADDR_LEN);
-
-	ret = dhdcdc_set_ioctl(dhd, 0, WLC_GET_BSSID, (char *)bssid, ETHER_ADDR_LEN);
-	DHD_TRACE((" %s WLC_GET_BSSID ioctl res = %d\n", __FUNCTION__, ret));
-
-	if (ret == BCME_NOTASSOCIATED) {
-		DHD_TRACE(("%s: not associated! res:%d\n", __FUNCTION__, ret));
-	}
-
-	if (ret < 0)
-		return FALSE;
-
-	if ((memcmp(bssid, zbuf, ETHER_ADDR_LEN) != 0)) {
-		/*  STA is assocoated BSSID is non zero */
-
-		if (bss_buf) {
-			/* return bss if caller provided buf */
-			memcpy(bss_buf, bssid, ETHER_ADDR_LEN);
-		}
-		return TRUE;
-	} else {
-		DHD_TRACE(("%s: WLC_GET_BSSID ioctl returned zero bssid\n", __FUNCTION__));
-		return FALSE;
-	}
-}
-
-/* Function to estimate possible DTIM_SKIP value */
-int dhd_get_dtim_skip(dhd_pub_t *dhd)
-{
-	int bcn_li_dtim;
-	char buf[128];
-	int ret;
-	int dtim_assoc = 0;
-
-	if ((dhd->dtim_skip == 0) || (dhd->dtim_skip == 1))
-		bcn_li_dtim = 3;
-	else
-		bcn_li_dtim = dhd->dtim_skip;
-
-	/* Read DTIM value if associated */
-	memset(buf, 0, sizeof(buf));
-	bcm_mkiovar("dtim_assoc", 0, 0, buf, sizeof(buf));
-	if ((ret = dhdcdc_query_ioctl(dhd, 0, WLC_GET_VAR, buf, sizeof(buf))) < 0) {
-		DHD_ERROR(("%s failed code %d\n", __FUNCTION__, ret));
-		bcn_li_dtim = 1;
-		goto exit;
-	}
-	else
-		dtim_assoc = dtoh32(*(int *)buf);
-
-	DHD_ERROR(("%s bcn_li_dtim=%d DTIM=%d Listen=%d\n", \
-			 __FUNCTION__, bcn_li_dtim, dtim_assoc, LISTEN_INTERVAL));
-
-	/* if not assocated just eixt */
-	if (dtim_assoc == 0) {
-		goto exit;
-	}
-
-	/* check if sta listen interval fits into AP dtim */
-	if (dtim_assoc > LISTEN_INTERVAL) {
-		/* AP DTIM to big for our Listen Interval : no dtim skiping */
-		bcn_li_dtim = 1;
-		DHD_ERROR(("%s DTIM=%d > Listen=%d : too big ...\n", \
-				 __FUNCTION__, dtim_assoc, LISTEN_INTERVAL));
-		goto exit;
-	}
-
-	if ((bcn_li_dtim * dtim_assoc) > LISTEN_INTERVAL) {
-		/* Round up dtim_skip to fit into STAs Listen Interval */
-		bcn_li_dtim = (int)(LISTEN_INTERVAL / dtim_assoc);
-		DHD_TRACE(("%s agjust dtim_skip as %d\n", __FUNCTION__, bcn_li_dtim));
-	}
-
-exit:
-	return bcn_li_dtim;
-}
+#endif 
 
 #ifdef PNO_SUPPORT
 int dhd_pno_clean(dhd_pub_t *dhd)
@@ -1907,15 +1815,6 @@ int dhd_pno_enable(dhd_pub_t *dhd, int pfn_enabled)
 
 	if ((!dhd) && ((pfn_enabled != 0) || (pfn_enabled != 1))) {
 		DHD_ERROR(("%s error exit\n", __FUNCTION__));
-		return ret;
-	}
-
-	memset(iovbuf, 0, sizeof(iovbuf));
-
-	/* Check if disassoc to enable pno */
-	if (pfn_enabled && (is_associated(dhd, NULL) == TRUE)) {
-		DHD_ERROR(("%s pno enable called in assoc mode ret=%d\n", \
-			__FUNCTION__, ret));
 		return ret;
 	}
 
