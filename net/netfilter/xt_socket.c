@@ -157,23 +157,6 @@ xt_socket_get4_sk(const struct sk_buff *skb, struct xt_action_param *par)
 
 	sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), protocol,
 				   saddr, daddr, sport, dport, par->in, NFT_LOOKUP_ANY);
-
-	pr_debug("proto %hhu %pI4:%hu -> %pI4:%hu (orig %pI4:%hu) sock %p\n",
-		 protocol, &saddr, ntohs(sport),
-		 &daddr, ntohs(dport),
-		 &iph->daddr, hp ? ntohs(hp->dest) : 0, sk);
-
-	return sk;
-}
-EXPORT_SYMBOL(xt_socket_get4_sk);
-
-static bool
-socket_match(const struct sk_buff *skb, struct xt_action_param *par,
-	     const struct xt_socket_mtinfo1 *info)
-{
-	struct sock *sk;
-
-	sk = xt_socket_get4_sk(skb, par);
 	if (sk != NULL) {
 		bool wildcard;
 		bool transparent = true;
