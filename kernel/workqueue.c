@@ -191,7 +191,43 @@ static const struct cpumask *cpu_singlethread_map __read_mostly;
  * use cpu_possible_map, the cpumask below is more a documentation
  * than optimization.
  */
-static cpumask_var_t cpu_populated_map __read_mostly;
+static struct global_cwq unbound_global_cwq;
+static atomic_t unbound_gcwq_nr_running = ATOMIC_INIT(0);	/* always 0 */
+
+static int worker_thread(void *__worker);
+	
+
+static struct global_cwq *get_gcwq(unsigned int cpu)
+{
+	if (cpu != WORK_CPU_UNBOUND)
+		return &per_cpu(global_cwq, cpu);
+	else
+		return &unbound_global_cwq;
+}
+
+static atomic_t *get_gcwq_nr_running(unsigned int cpu)
+{
+	if (cpu != WORK_CPU_UNBOUND)
+		return &per_cpu(gcwq_nr_running, cpu);
+	else
+		return &unbound_gcwq_nr_running;
+}
+
+static struct cpu_workqueue_struct *get_cwq(unsigned int cpu,
+					    struct workqueue_struct *wq)
+{
+	if (!(wq->flags & WQ_UNBOUND)) {
+		if (likely(cpu < nr_cpu_ids)) {
+#ifdef CONFIG_SMP
+			return per_cpu_ptr(wq->cpu_wq.pcpu, cpu);
+#else
+			return wq->cpu_wq.single;
+#endif
+		}
+	} else if (likely(cpu == WORK_CPU_UNBOUND))
+		return wq->cpu_wq.single;
+	return NULL;
+}
 
 /* If it's single threaded, it isn't in the list of workqueues. */
 static inline int is_wq_single_threaded(struct workqueue_struct *wq)
@@ -451,6 +487,365 @@ static int worker_thread(void *__cwq)
 
 		if (kthread_should_stop())
 			break;
+	}
+
+	/*
+	 * If we're already inside safe list traversal and have moved
+	 * multiple works to the scheduled queue, the next position
+	 * needs to be updated.
+	 */
+	if (nextp)
+		*nextp = n;
+}
+
+static void cwq_activate_first_delayed(struct cpu_workqueue_struct *cwq)
+{
+	struct work_struct *work = list_first_entry(&cwq->delayed_works,
+						    struct work_struct, entry);
+	struct list_head *pos = gcwq_determine_ins_pos(cwq->gcwq, cwq);
+
+	move_linked_works(work, pos, NULL);
+	__clear_bit(WORK_STRUCT_DELAYED_BIT, work_data_bits(work));
+	cwq->nr_active++;
+}
+
+/**
+ * cwq_dec_nr_in_flight - decrement cwq's nr_in_flight
+ * @cwq: cwq of interest
+ * @color: color of work which left the queue
+ * @delayed: for a delayed work
+ *
+ * A work either has completed or is removed from pending queue,
+ * decrement nr_in_flight of its cwq and handle workqueue flushing.
+ *
+ * CONTEXT:
+ * spin_lock_irq(gcwq->lock).
+ */
+static void cwq_dec_nr_in_flight(struct cpu_workqueue_struct *cwq, int color,
+				 bool delayed)
+{
+	/* ignore uncolored works */
+	if (color == WORK_NO_COLOR)
+		return;
+
+	cwq->nr_in_flight[color]--;
+
+	if (!delayed) {
+		cwq->nr_active--;
+		if (!list_empty(&cwq->delayed_works)) {
+			/* one down, submit a delayed one */
+			if (cwq->nr_active < cwq->max_active)
+				cwq_activate_first_delayed(cwq);
+		}
+	}
+
+	/* is flush in progress and are we at the flushing tip? */
+	if (likely(cwq->flush_color != color))
+		return;
+
+	/* are there still in-flight works? */
+	if (cwq->nr_in_flight[color])
+		return;
+
+	/* this cwq is done, clear flush_color */
+	cwq->flush_color = -1;
+
+	/*
+	 * If this was the last cwq, wake up the first flusher.  It
+	 * will handle the rest.
+	 */
+	if (atomic_dec_and_test(&cwq->wq->nr_cwqs_to_flush))
+		complete(&cwq->wq->first_flusher->done);
+}
+
+/**
+ * process_one_work - process single work
+ * @worker: self
+ * @work: work to process
+ *
+ * Process @work.  This function contains all the logics necessary to
+ * process a single work including synchronization against and
+ * interaction with other workers on the same cpu, queueing and
+ * flushing.  As long as context requirement is met, any worker can
+ * call this function to process a work.
+ *
+ * CONTEXT:
+ * spin_lock_irq(gcwq->lock) which is released and regrabbed.
+ */
+static void process_one_work(struct worker *worker, struct work_struct *work)
+__releases(&gcwq->lock)
+__acquires(&gcwq->lock)
+{
+	struct cpu_workqueue_struct *cwq = get_work_cwq(work);
+	struct global_cwq *gcwq = cwq->gcwq;
+	struct hlist_head *bwh = busy_worker_head(gcwq, work);
+	bool cpu_intensive = cwq->wq->flags & WQ_CPU_INTENSIVE;
+	work_func_t f = work->func;
+	int work_color;
+	struct worker *collision;
+#ifdef CONFIG_LOCKDEP
+	/*
+	 * It is permissible to free the struct work_struct from
+	 * inside the function that is called from it, this we need to
+	 * take into account for lockdep too.  To avoid bogus "held
+	 * lock freed" warnings as well as problems when looking into
+	 * work->lockdep_map, make a copy and use that here.
+	 */
+	struct lockdep_map lockdep_map = work->lockdep_map;
+#endif
+	/*
+	 * A single work shouldn't be executed concurrently by
+	 * multiple workers on a single cpu.  Check whether anyone is
+	 * already processing the work.  If so, defer the work to the
+	 * currently executing one.
+	 */
+	collision = __find_worker_executing_work(gcwq, bwh, work);
+	if (unlikely(collision)) {
+		move_linked_works(work, &collision->scheduled, NULL);
+		return;
+	}
+
+	/* claim and process */
+	debug_work_deactivate(work);
+	hlist_add_head(&worker->hentry, bwh);
+	worker->current_work = work;
+	worker->current_cwq = cwq;
+	work_color = get_work_color(work);
+
+	/* record the current cpu number in the work data and dequeue */
+	set_work_cpu(work, gcwq->cpu);
+	list_del_init(&work->entry);
+
+	/*
+	 * If HIGHPRI_PENDING, check the next work, and, if HIGHPRI,
+	 * wake up another worker; otherwise, clear HIGHPRI_PENDING.
+	 */
+	if (unlikely(gcwq->flags & GCWQ_HIGHPRI_PENDING)) {
+		struct work_struct *nwork = list_first_entry(&gcwq->worklist,
+						struct work_struct, entry);
+
+		if (!list_empty(&gcwq->worklist) &&
+		    get_work_cwq(nwork)->wq->flags & WQ_HIGHPRI)
+			wake_up_worker(gcwq);
+		else
+			gcwq->flags &= ~GCWQ_HIGHPRI_PENDING;
+	}
+
+	/*
+	 * CPU intensive works don't participate in concurrency
+	 * management.  They're the scheduler's responsibility.
+	 */
+	if (unlikely(cpu_intensive))
+		worker_set_flags(worker, WORKER_CPU_INTENSIVE, true);
+
+	spin_unlock_irq(&gcwq->lock);
+
+	work_clear_pending(work);
+	lock_map_acquire(&cwq->wq->lockdep_map);
+	lock_map_acquire(&lockdep_map);
+//	trace_workqueue_execute_start(work);
+
+	/* store workqueue func for history */
+	store_workqueue(cwq->wq->name, (unsigned long)f);
+
+	f(work);
+	/*
+	 * While we must be careful to not use "work" after this, the trace
+	 * point will only record its address.
+	 */
+//	trace_workqueue_execute_end(work);
+	lock_map_release(&lockdep_map);
+	lock_map_release(&cwq->wq->lockdep_map);
+
+	if (unlikely(in_atomic() || lockdep_depth(current) > 0)) {
+		printk(KERN_ERR "BUG: workqueue leaked lock or atomic: "
+		       "%s/0x%08x/%d\n",
+		       current->comm, preempt_count(), task_pid_nr(current));
+		printk(KERN_ERR "    last function: ");
+		print_symbol("%s\n", (unsigned long)f);
+		debug_show_held_locks(current);
+		dump_stack();
+	}
+
+	spin_lock_irq(&gcwq->lock);
+
+	/* clear cpu intensive status */
+	if (unlikely(cpu_intensive))
+		worker_clr_flags(worker, WORKER_CPU_INTENSIVE);
+
+	/* we're done with it, release */
+	hlist_del_init(&worker->hentry);
+	worker->current_work = NULL;
+	worker->current_cwq = NULL;
+	cwq_dec_nr_in_flight(cwq, work_color, false);
+}
+
+/**
+ * process_scheduled_works - process scheduled works
+ * @worker: self
+ *
+ * Process all scheduled works.  Please note that the scheduled list
+ * may change while processing a work, so this function repeatedly
+ * fetches a work from the top and executes it.
+ *
+ * CONTEXT:
+ * spin_lock_irq(gcwq->lock) which may be released and regrabbed
+ * multiple times.
+ */
+static void process_scheduled_works(struct worker *worker)
+{
+	while (!list_empty(&worker->scheduled)) {
+		struct work_struct *work = list_first_entry(&worker->scheduled,
+						struct work_struct, entry);
+		process_one_work(worker, work);
+	}
+}
+
+/**
+ * worker_thread - the worker thread function
+ * @__worker: self
+ *
+ * The gcwq worker thread function.  There's a single dynamic pool of
+ * these per each cpu.  These workers process all works regardless of
+ * their specific target workqueue.  The only exception is works which
+ * belong to workqueues with a rescuer which will be explained in
+ * rescuer_thread().
+ */
+static int worker_thread(void *__worker)
+{
+	struct worker *worker = __worker;
+	struct global_cwq *gcwq = worker->gcwq;
+	set_user_nice(current, -5);
+	/* tell the scheduler that this is a workqueue worker */
+	worker->task->flags |= PF_WQ_WORKER;
+woke_up:
+	spin_lock_irq(&gcwq->lock);
+
+	/* DIE can be set only while we're idle, checking here is enough */
+	if (worker->flags & WORKER_DIE) {
+		spin_unlock_irq(&gcwq->lock);
+		worker->task->flags &= ~PF_WQ_WORKER;
+		return 0;
+	}
+
+	worker_leave_idle(worker);
+recheck:
+	/* no more worker necessary? */
+	if (!need_more_worker(gcwq))
+		goto sleep;
+
+	/* do we need to manage? */
+	if (unlikely(!may_start_working(gcwq)) && manage_workers(worker))
+		goto recheck;
+
+	/*
+	 * ->scheduled list can only be filled while a worker is
+	 * preparing to process a work or actually processing it.
+	 * Make sure nobody diddled with it while I was sleeping.
+	 */
+	BUG_ON(!list_empty(&worker->scheduled));
+
+	/*
+	 * When control reaches this point, we're guaranteed to have
+	 * at least one idle worker or that someone else has already
+	 * assumed the manager role.
+	 */
+	worker_clr_flags(worker, WORKER_PREP);
+
+	do {
+		struct work_struct *work =
+			list_first_entry(&gcwq->worklist,
+					 struct work_struct, entry);
+
+		if (likely(!(*work_data_bits(work) & WORK_STRUCT_LINKED))) {
+			/* optimization path, not strictly necessary */
+			process_one_work(worker, work);
+			if (unlikely(!list_empty(&worker->scheduled)))
+				process_scheduled_works(worker);
+		} else {
+			move_linked_works(work, &worker->scheduled, NULL);
+			process_scheduled_works(worker);
+		}
+	} while (keep_working(gcwq));
+
+	worker_set_flags(worker, WORKER_PREP, false);
+sleep:
+	if (unlikely(need_to_manage_workers(gcwq)) && manage_workers(worker))
+		goto recheck;
+
+	/*
+	 * gcwq->lock is held and there's no work to process and no
+	 * need to manage, sleep.  Workers are woken up only while
+	 * holding gcwq->lock or from local cpu, so setting the
+	 * current state before releasing gcwq->lock is enough to
+	 * prevent losing any event.
+	 */
+	worker_enter_idle(worker);
+	__set_current_state(TASK_INTERRUPTIBLE);
+	spin_unlock_irq(&gcwq->lock);
+	schedule();
+	goto woke_up;
+}
+
+/**
+ * rescuer_thread - the rescuer thread function
+ * @__wq: the associated workqueue
+ *
+ * Workqueue rescuer thread function.  There's one rescuer for each
+ * workqueue which has WQ_RESCUER set.
+ *
+ * Regular work processing on a gcwq may block trying to create a new
+ * worker which uses GFP_KERNEL allocation which has slight chance of
+ * developing into deadlock if some works currently on the same queue
+ * need to be processed to satisfy the GFP_KERNEL allocation.  This is
+ * the problem rescuer solves.
+ *
+ * When such condition is possible, the gcwq summons rescuers of all
+ * workqueues which have works queued on the gcwq and let them process
+ * those works so that forward progress can be guaranteed.
+ *
+ * This should happen rarely.
+ */
+static int rescuer_thread(void *__wq)
+{
+	struct workqueue_struct *wq = __wq;
+	struct worker *rescuer = wq->rescuer;
+	struct list_head *scheduled = &rescuer->scheduled;
+	bool is_unbound = wq->flags & WQ_UNBOUND;
+	unsigned int cpu;
+
+	set_user_nice(current, RESCUER_NICE_LEVEL);
+repeat:
+	set_current_state(TASK_INTERRUPTIBLE);
+
+	if (kthread_should_stop())
+		return 0;
+
+	/*
+	 * See whether any cpu is asking for help.  Unbounded
+	 * workqueues use cpu 0 in mayday_mask for CPU_UNBOUND.
+	 */
+	for_each_mayday_cpu(cpu, wq->mayday_mask) {
+		unsigned int tcpu = is_unbound ? WORK_CPU_UNBOUND : cpu;
+		struct cpu_workqueue_struct *cwq = get_cwq(tcpu, wq);
+		struct global_cwq *gcwq = cwq->gcwq;
+		struct work_struct *work, *n;
+
+		__set_current_state(TASK_RUNNING);
+		mayday_clear_cpu(cpu, wq->mayday_mask);
+
+		/* migrate to the target cpu if possible */
+		rescuer->gcwq = gcwq;
+		worker_maybe_bind_and_lock(rescuer);
+
+		/*
+		 * Slurp in all works issued via this workqueue and
+		 * process'em.
+		 */
+		BUG_ON(!list_empty(&rescuer->scheduled));
+		list_for_each_entry_safe(work, n, &gcwq->worklist, entry)
+			if (get_work_cwq(work) == cwq)
+				move_linked_works(work, scheduled, &n);
 
 		run_workqueue(cwq);
 	}
