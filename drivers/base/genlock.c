@@ -397,7 +397,12 @@ done:
 	return ret;
 }
 
-static void genlock_release_lock(struct genlock_handle *handle)
+/**
+ * genlock_release_lock - Release a lock attached to a handle
+ * @handle - Pointer to the handle holding the lock
+ */
+
+void genlock_release_lock(struct genlock_handle *handle)
 {
 	unsigned long flags;
 
@@ -418,6 +423,7 @@ static void genlock_release_lock(struct genlock_handle *handle)
 	handle->lock = NULL;
 	handle->active = 0;
 }
+EXPORT_SYMBOL(genlock_release_lock);
 
 /*
  * Release function called when all references to a handle are released
@@ -558,13 +564,8 @@ static long genlock_dev_ioctl(struct file *filep, unsigned int cmd,
 		return genlock_wait(handle, param.timeout);
 	}
 	case GENLOCK_IOC_RELEASE: {
-		/*
-		 * Return error - this ioctl has been deprecated.
-		 * Locks should only be released when the handle is
-		 * destroyed
-		 */
-		GENLOCK_LOG_ERR("Deprecated RELEASE ioctl called\n");
-		return -EINVAL;
+		genlock_release_lock(handle);
+		return 0;
 	}
 	default:
 		return -EINVAL;
