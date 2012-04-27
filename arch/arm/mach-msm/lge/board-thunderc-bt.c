@@ -22,6 +22,8 @@
 #include <linux/delay.h>
 #include <linux/rfkill.h>
 
+static int bt_status = 0;
+
 #ifdef CONFIG_BT
 static unsigned bt_config_power_on[] = {
 	GPIO_CFG(BT_WAKE, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* WAKE */
@@ -63,6 +65,8 @@ static int thunderc_bluetooth_toggle_radio(void *data, bool state)
 static int thunderc_bluetooth_power(int on)
 {
 	int pin, rc;
+	if (on == bt_status)
+		return 0;
 
 	printk(KERN_DEBUG "%s\n", __func__);
 
@@ -104,6 +108,7 @@ static int thunderc_bluetooth_power(int on)
 		}
 	}
 	return 0;
+	bt_status = on;
 }
 
 static struct bluetooth_platform_data thunderc_bluetooth_data = {
