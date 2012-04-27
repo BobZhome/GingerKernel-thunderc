@@ -161,13 +161,13 @@ void Send_Touch( unsigned int x, unsigned int y)
 	}
 
 #ifdef LG_FW_MULTI_TOUCH
-	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_TOUCH_MAJOR, 1);
+	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_PRESSURE, 1);
 	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_POSITION_X, x);
 	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_POSITION_Y, y);
 	input_mt_sync(mcs6000_ext_ts->input_dev);
 	input_sync(mcs6000_ext_ts->input_dev);
 
-	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
+	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_PRESSURE, 0);
 	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_POSITION_X, x);
 	input_report_abs(mcs6000_ext_ts->input_dev, ABS_MT_POSITION_Y, y);
 	input_mt_sync(mcs6000_ext_ts->input_dev);
@@ -191,7 +191,7 @@ static __inline void mcs6000_multi_ts_event_touch(int x1, int y1, int x2, int y2
 		DMSG("\n");
 
 	if ((x1 >= 0) && (y1 >= 0)) {
-		input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, value);
+		input_report_abs(ts->input_dev, ABS_MT_PRESSURE, value);
 		input_report_abs(ts->input_dev, ABS_MT_POSITION_X, x1);
 		input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, y1);
 		input_mt_sync(ts->input_dev);
@@ -199,7 +199,7 @@ static __inline void mcs6000_multi_ts_event_touch(int x1, int y1, int x2, int y2
 	}
 
 	if ((x2 >= 0) && (y2 >= 0)) {
-		input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, value);
+		input_report_abs(ts->input_dev, ABS_MT_PRESSURE, value);
 		input_report_abs(ts->input_dev, ABS_MT_POSITION_X, x2);
 		input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, y2);
 		input_mt_sync(ts->input_dev);
@@ -1080,7 +1080,7 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 	set_bit(EV_SYN, ts->input_dev->evbit);
 	set_bit(EV_ABS, ts->input_dev->evbit);
 #ifdef LG_FW_MULTI_TOUCH
-	set_bit(ABS_MT_TOUCH_MAJOR, ts->input_dev->absbit);
+	set_bit(ABS_MT_PRESSURE, ts->input_dev->absbit);
 	set_bit(ABS_MT_POSITION_X, ts->input_dev->absbit);
 	set_bit(ABS_MT_POSITION_Y, ts->input_dev->absbit);
 #else
