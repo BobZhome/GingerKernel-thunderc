@@ -1837,7 +1837,7 @@ static void msm_pm_restart(char str, const char *cmd)
 #endif
 
 	msm_rpcrouter_close();
-	msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
+	msm_proc_comm(PCOM_RESET_CHIP_IMM, &restart_reason, 0);
 
 	for (;;)
 		;
