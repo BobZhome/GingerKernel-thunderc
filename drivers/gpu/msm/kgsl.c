@@ -25,11 +25,8 @@
 
 #include <linux/ashmem.h>
 #include <linux/major.h>
-<<<<<<< HEAD
-=======
 #include <linux/ion.h>
 #include <mach/socinfo.h>
->>>>>>> 10543e6... msm: kgsl: Add ION as an external memory source (CodeAurora)
 
 #include "kgsl.h"
 #include "kgsl_debugfs.h"
@@ -50,11 +47,7 @@ module_param_named(mmutype, ksgl_mmu_type, charp, 0);
 MODULE_PARM_DESC(ksgl_mmu_type,
 "Type of MMU to be used for graphics. Valid values are 'iommu' or 'gpummu' or 'nommu'");
 
-<<<<<<< HEAD
-#ifdef CONFIG_GENLOCK
-=======
 static struct ion_client *kgsl_ion_client;
->>>>>>> 10543e6... msm: kgsl: Add ION as an external memory source (CodeAurora)
 
 /**
  * kgsl_add_event - Add a new timstamp event for the KGSL device
@@ -145,16 +138,6 @@ kgsl_mem_entry_destroy(struct kref *kref)
 
 	kgsl_sharedmem_free(&entry->memdesc);
 
-<<<<<<< HEAD
-	if (entry->memtype == KGSL_USER_MEMORY)
-		entry->priv->stats.user -= size;
-	else if (entry->memtype == KGSL_MAPPED_MEMORY) {
-		if (entry->file_ptr)
-			fput(entry->file_ptr);
-
-		kgsl_driver.stats.mapped -= size;
-		entry->priv->stats.mapped -= size;
-=======
 	switch (entry->memtype) {
 	case KGSL_MEM_ENTRY_PMEM:
 	case KGSL_MEM_ENTRY_ASHMEM:
@@ -164,7 +147,6 @@ kgsl_mem_entry_destroy(struct kref *kref)
 	case KGSL_MEM_ENTRY_ION:
 		ion_free(kgsl_ion_client, entry->priv_data);
 		break;
->>>>>>> 10543e6... msm: kgsl: Add ION as an external memory source (CodeAurora)
 	}
 
 	kfree(entry);
@@ -1520,35 +1502,6 @@ static int kgsl_setup_ashmem(struct kgsl_mem_entry *entry,
 }
 #endif
 
-<<<<<<< HEAD
-static int is_ashmem_file(struct file *file)
-{
-	char fname[256], *name;
-	name = dentry_path(file->f_dentry, fname, 256);
-	return strcmp(name, "/ashmem") ? 0 : 1;
-}
-
-static int is_ashmem_fd(int fd)
-{
-	int ret = 0;
-	struct file *file = fget(fd);
-	if (unlikely(file == NULL)) {
-		pr_err("ashmem: %s: requested data from file "
-			"descriptor that doesn't exist.\n", __func__);
-	} else {
-		char currtask_name[FIELD_SIZEOF(struct task_struct, comm) + 1];
-		pr_debug("rdev %d pid %u(%s) file %p(%ld)"
-			" dev id: %d\n",
-			file->f_dentry->d_inode->i_rdev,
-			current->pid, get_task_comm(currtask_name, current),
-			file, file_count(file),
-			MINOR(file->f_dentry->d_inode->i_rdev));
-		if (is_ashmem_file(file))
-			ret = 1;
-		fput(file);
-	}
-	return ret;
-=======
 static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 		struct kgsl_pagetable *pagetable, int fd)
 {
@@ -1592,7 +1545,6 @@ static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 err:
 	ion_free(kgsl_ion_client, handle);
 	return -ENOMEM;
->>>>>>> 10543e6... msm: kgsl: Add ION as an external memory source (CodeAurora)
 }
 
 static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,

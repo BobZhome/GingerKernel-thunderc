@@ -120,8 +120,6 @@ struct kgsl_memdesc {
 	struct kgsl_memdesc_ops *ops;
 };
 
-<<<<<<< HEAD
-=======
 /* List of different memory entry types */
 
 #define KGSL_MEM_ENTRY_KERNEL 0
@@ -131,7 +129,6 @@ struct kgsl_memdesc {
 #define KGSL_MEM_ENTRY_ION    4
 #define KGSL_MEM_ENTRY_MAX    5
 
->>>>>>> 10543e6... msm: kgsl: Add ION as an external memory source (CodeAurora)
 struct kgsl_mem_entry {
 	struct kref refcount;
 	struct kgsl_memdesc memdesc;

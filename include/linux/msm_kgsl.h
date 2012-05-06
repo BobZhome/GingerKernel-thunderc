@@ -71,10 +71,7 @@ enum kgsl_user_mem_type {
 	KGSL_USER_MEM_TYPE_ASHMEM	= 0x00000001,
 	KGSL_USER_MEM_TYPE_ADDR		= 0x00000002,
 	KGSL_USER_MEM_TYPE_ION		= 0x00000003,
-<<<<<<< HEAD
-=======
 	KGSL_USER_MEM_TYPE_MAX		= 0x00000004,
->>>>>>> 10543e6... msm: kgsl: Add ION as an external memory source (CodeAurora)
 };
 
 struct kgsl_devinfo {
