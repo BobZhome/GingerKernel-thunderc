@@ -93,8 +93,23 @@ static struct attribute *process_attrs[] = {
 	NULL
 };
 
+<<<<<<< HEAD
 static struct attribute_group process_attr_group = {
 	.attrs = process_attrs,
+=======
+static struct mem_entry_stats mem_stats[] = {
+	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_KERNEL, kernel),
+#ifdef CONFIG_ANDROID_PMEM
+	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_PMEM, pmem),
+#endif
+#ifdef CONFIG_ASHMEM
+	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_ASHMEM, ashmem),
+#endif
+	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_USER, user),
+#ifdef CONFIG_ION
+	MEM_ENTRY_STAT(KGSL_MEM_ENTRY_USER, ion),
+#endif    
+>>>>>>> 10543e6... msm: kgsl: Add ION as an external memory source (CodeAurora)
 };
 
 void

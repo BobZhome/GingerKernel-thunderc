@@ -25,6 +25,11 @@
 
 #include <linux/ashmem.h>
 #include <linux/major.h>
+<<<<<<< HEAD
+=======
+#include <linux/ion.h>
+#include <mach/socinfo.h>
+>>>>>>> 10543e6... msm: kgsl: Add ION as an external memory source (CodeAurora)
 
 #include "kgsl.h"
 #include "kgsl_debugfs.h"
@@ -45,7 +50,11 @@ module_param_named(mmutype, ksgl_mmu_type, charp, 0);
 MODULE_PARM_DESC(ksgl_mmu_type,
 "Type of MMU to be used for graphics. Valid values are 'iommu' or 'gpummu' or 'nommu'");
 
+<<<<<<< HEAD
 #ifdef CONFIG_GENLOCK
+=======
+static struct ion_client *kgsl_ion_client;
+>>>>>>> 10543e6... msm: kgsl: Add ION as an external memory source (CodeAurora)
 
 /**
  * kgsl_add_event - Add a new timstamp event for the KGSL device
@@ -123,8 +132,20 @@ kgsl_mem_entry_destroy(struct kref *kref)
 						    refcount);
 	size_t size = entry->memdesc.size;
 
+	/*
+	 * Ion takes care of freeing the sglist for us (how nice </sarcasm>) so
+	 * unmap the dma before freeing the sharedmem so kgsl_sharedmem_free
+	 * doesn't try to free it again
+	 */
+
+	if (entry->memtype == KGSL_MEM_ENTRY_ION) {
+		ion_unmap_dma(kgsl_ion_client, entry->priv_data);
+		entry->memdesc.sg = NULL;
+	}
+
 	kgsl_sharedmem_free(&entry->memdesc);
 
+<<<<<<< HEAD
 	if (entry->memtype == KGSL_USER_MEMORY)
 		entry->priv->stats.user -= size;
 	else if (entry->memtype == KGSL_MAPPED_MEMORY) {
@@ -133,6 +154,17 @@ kgsl_mem_entry_destroy(struct kref *kref)
 
 		kgsl_driver.stats.mapped -= size;
 		entry->priv->stats.mapped -= size;
+=======
+	switch (entry->memtype) {
+	case KGSL_MEM_ENTRY_PMEM:
+	case KGSL_MEM_ENTRY_ASHMEM:
+		if (entry->priv_data)
+			fput(entry->priv_data);
+		break;
+	case KGSL_MEM_ENTRY_ION:
+		ion_free(kgsl_ion_client, entry->priv_data);
+		break;
+>>>>>>> 10543e6... msm: kgsl: Add ION as an external memory source (CodeAurora)
 	}
 
 	kfree(entry);
@@ -1488,6 +1520,7 @@ static int kgsl_setup_ashmem(struct kgsl_mem_entry *entry,
 }
 #endif
 
+<<<<<<< HEAD
 static int is_ashmem_file(struct file *file)
 {
 	char fname[256], *name;
@@ -1515,6 +1548,51 @@ static int is_ashmem_fd(int fd)
 		fput(file);
 	}
 	return ret;
+=======
+static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
+		struct kgsl_pagetable *pagetable, int fd)
+{
+	struct ion_handle *handle;
+	struct scatterlist *s;
+	unsigned long flags;
+
+	if (kgsl_ion_client == NULL) {
+		kgsl_ion_client = msm_ion_client_create(UINT_MAX, KGSL_NAME);
+		if (kgsl_ion_client == NULL)
+			return -ENODEV;
+	}
+
+	handle = ion_import_fd(kgsl_ion_client, fd);
+	if (IS_ERR_OR_NULL(handle))
+		return PTR_ERR(handle);
+
+	entry->memtype = KGSL_MEM_ENTRY_ION;
+	entry->priv_data = handle;
+	entry->memdesc.pagetable = pagetable;
+	entry->memdesc.size = 0;
+
+	if (ion_handle_get_flags(kgsl_ion_client, handle, &flags))
+		goto err;
+
+	entry->memdesc.sg = ion_map_dma(kgsl_ion_client, handle, flags);
+
+	if (IS_ERR_OR_NULL(entry->memdesc.sg))
+		goto err;
+
+	/* Calculate the size of the memdesc from the sglist */
+
+	entry->memdesc.sglen = 0;
+
+	for (s = entry->memdesc.sg; s != NULL; s = sg_next(s)) {
+		entry->memdesc.size += s->length;
+		entry->memdesc.sglen++;
+	}
+
+	return 0;
+err:
+	ion_free(kgsl_ion_client, handle);
+	return -ENOMEM;
+>>>>>>> 10543e6... msm: kgsl: Add ION as an external memory source (CodeAurora)
 }
 
 static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
@@ -1579,6 +1657,10 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		result = kgsl_setup_ashmem(entry, private->pagetable,
 					   param->fd, (void *) param->hostptr,
 					   param->len);
+		break;
+	case KGSL_USER_MEM_TYPE_ION:
+		result = kgsl_setup_ion(entry, private->pagetable,
+			param->fd);
 		break;
 	default:
 		KGSL_CORE_ERR("Invalid memory type: %x\n", memtype);
