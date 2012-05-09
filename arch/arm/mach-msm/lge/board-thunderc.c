@@ -72,18 +72,6 @@
 #endif
 #include <mach/board_lge.h>
 
-#ifdef CONFIG_LGE_USB_GADGET_SUPPORT_FACTORY_USB
-#define LG_UNKNOWN_CABLE			0
-#define LG_WALL_CHARGER_CABLE		1
-#define LG_NORMAL_USB_CABLE			2
-#define LG_FACTORY_CABLE_56K_TYPE	3
-#define LG_FACTORY_CABLE_130K_TYPE	4
-#define LG_FACTORY_CABLE_910K_TYPE	5
-#define LG_RESERVED1_CABLE			6
-#define LG_RESERVED2_CABLE			7
-#define LG_NONE_CABLE				8
-#endif
-
 /* board-specific pm tuning data definitions */
 
 /* currently, below declaration code is blocked.
@@ -292,7 +280,8 @@ struct android_usb_product usb_products[] = {
 #endif
 
 	{
-		.product_id = 0x61C5,
+		.product_id = 0x61CC,
+		//.product_id = 0x61C5,
 		.num_functions = ARRAY_SIZE(usb_functions_lge_mass_stroage_only),
 		.functions = usb_functions_lge_mass_stroage_only,
 	},
@@ -300,8 +289,10 @@ struct android_usb_product usb_products[] = {
 
 struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.nluns      = 1,
-	.vendor     = "LGE",
-	.product    = "Android Platform",
+//	.vendor     = "LGE",
+	.vendor     = "GOOGLE",
+//	.product    = "Android Platform",
+	.product    = "Mass Storage",
 	.release    = 0x0100,
 };
 
@@ -466,7 +457,7 @@ static void __init msm7x2x_init(void)
 #endif
 
 	if (cpu_is_msm7x27())
-		msm7x2x_clock_data.max_axi_khz = 200000;
+		msm7x2x_clock_data.max_axi_khz = 422400; //200000;
 
 	msm_acpu_clock_init(&msm7x2x_clock_data);
 

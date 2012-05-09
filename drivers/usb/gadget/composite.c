@@ -128,7 +128,13 @@ void usb_composite_force_reset(struct usb_composite_dev *cdev)
 	if (cdev && cdev->gadget &&
 			cdev->gadget->speed != USB_SPEED_UNKNOWN) {
 		/* avoid sending a disconnect switch event until after we disconnect */
-		cdev->mute_switch = 1;
+		//LGSI_CHANGE_START [prabhu.chawandi@lge.com] 05/01/2012.
+		/*   Enabling wrting sysfs entry with proper state, this was  causing the status of USB as connected
+		even though the USB is not connected, when read from framework after */
+		#if 0 
+			cdev->mute_switch = 1;
+	    #endif 
+		//LGSI_CHANGE_END
 		spin_unlock_irqrestore(&cdev->lock, flags);
 
 		usb_gadget_disconnect(cdev->gadget);

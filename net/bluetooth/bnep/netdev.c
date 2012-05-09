@@ -214,12 +214,12 @@ static netdev_tx_t bnep_net_xmit(struct sk_buff *skb,
 
 static int bnep_validate_addr(struct net_device *dev)
 {
-	u8 *addr = dev->dev_addr;
-	/* Make sure the 6th byte is even */
-	if (addr[0] & 0x1) {
-		addr[0]--;
-	}
-	return eth_validate_addr(dev);
+  u8 *addr = dev->dev_addr;
+  /* Make sure the 6th byte is even */
+  if (addr[0] & 0x1) {
+    addr[0]--;
+  }
+  return eth_validate_addr(dev);
 }
 
 static const struct net_device_ops bnep_netdev_ops = {

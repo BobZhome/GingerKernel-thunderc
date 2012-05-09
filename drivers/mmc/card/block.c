@@ -449,6 +449,14 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 #endif
 		}
 
+		// LGE_CHANGE [dojip.kim@lge.com] 2010-08-29,
+		// don't redo I/O when nomedium error
+#if 1//def CONFIG_LGE_MMC_WORKAROUND//LGE_CHANGES
+		if (brq.cmd.error == -ENOMEDIUM) {
+			goto cmd_err;
+		}
+#endif
+
 		if (brq.cmd.error || brq.stop.error || brq.data.error) {
 			if (rq_data_dir(req) == READ) {
 				/*

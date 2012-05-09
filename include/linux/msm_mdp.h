@@ -1,7 +1,7 @@
 /* include/linux/msm_mdp.h
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -51,21 +51,14 @@
 #define MSMFB_OVERLAY_3D       _IOWR(MSMFB_IOCTL_MAGIC, 147, \
 						struct msmfb_overlay_3d)
 
+/* XXXTDM: copied for userspace sake not implemented */
 #define MSMFB_MIXER_INFO       _IOWR(MSMFB_IOCTL_MAGIC, 148, \
-						struct msmfb_mixer_info_req)
+					struct msmfb_mixer_info_req)
 #define MSMFB_OVERLAY_PLAY_WAIT _IOWR(MSMFB_IOCTL_MAGIC, 149, \
-						struct msmfb_overlay_data)
-#define MSMFB_WRITEBACK_INIT _IO(MSMFB_IOCTL_MAGIC, 150)
-#define MSMFB_WRITEBACK_START _IO(MSMFB_IOCTL_MAGIC, 151)
-#define MSMFB_WRITEBACK_STOP _IO(MSMFB_IOCTL_MAGIC, 152)
-#define MSMFB_WRITEBACK_QUEUE_BUFFER _IOW(MSMFB_IOCTL_MAGIC, 153, \
-						struct msmfb_data)
-#define MSMFB_WRITEBACK_DEQUEUE_BUFFER _IOW(MSMFB_IOCTL_MAGIC, 154, \
-						struct msmfb_data)
-#define MSMFB_WRITEBACK_TERMINATE _IO(MSMFB_IOCTL_MAGIC, 155)
-#define MSMFB_MDP_PP _IOWR(MSMFB_IOCTL_MAGIC, 156, struct msmfb_mdp_pp)
+					struct msmfb_overlay_data)
 
-#define FB_TYPE_3D_PANEL 0x10101010
+#define FB_TYPE_3D_PANEL 0x10101010 /* XXX */
+
 #define MDP_IMGTYPE2_START 0x10000
 #define MSMFB_DRIVER_VERSION	0xF9E8D701
 
@@ -91,7 +84,7 @@ enum {
 	MDP_Y_CRCB_H2V2_TILE,  /* Y and CrCb, pseudo planer tile */
 	MDP_Y_CBCR_H2V2_TILE,  /* Y and CbCr, pseudo planer tile */
 	MDP_Y_CR_CB_H2V2,  /* Y, Cr and Cb, planar */
-	MDP_Y_CR_CB_GH2V2,  /* Y, Cr and Cb, planar aligned to Android YV12 */
+	MDP_Y_CR_CB_GH2V2, /* Y, Cr and Cb, planar aligned to Android YV12 */
 	MDP_Y_CB_CR_H2V2,  /* Y, Cb and Cr, planar */
 	MDP_Y_CRCB_H1V1,  /* Y and CrCb, pseduo planer w/ Cr is in MSB */
 	MDP_Y_CBCR_H1V1,  /* Y and CbCr, pseduo planer w/ Cb is in MSB */
@@ -106,12 +99,13 @@ enum {
 	FB_IMG,
 };
 
+/* XXX: not implemented */
 enum {
-	HSIC_HUE = 0,
-	HSIC_SAT,
-	HSIC_INT,
-	HSIC_CON,
-	NUM_HSIC_PARAM,
+	 HSIC_HUE = 0,
+	 HSIC_SAT,
+	 HSIC_INT,
+	 HSIC_CON,
+	 NUM_HSIC_PARAM,
 };
 
 /* mdp_blit_req flag values */
@@ -141,7 +135,7 @@ enum {
 #define MDP_SOURCE_ROTATED_90		0x00100000
 #define MDP_DPP_HSIC			0x00080000
 #define MDP_BORDERFILL_SUPPORTED	0x00010000
-#define MDP_SECURE_OVERLAY_SESSION      0x00008000
+#define MDP_SECURE_OVERLAY_SESSION	0x00008000
 #define MDP_MEMORY_ID_TYPE_FB		0x00001000
 
 #define MDP_TRANSP_NOP 0xffffffff
@@ -248,12 +242,6 @@ struct msmfb_img {
 	uint32_t format;
 };
 
-#define MSMFB_WRITEBACK_DEQUEUE_BLOCKING 0x1
-struct msmfb_writeback_data {
-	struct msmfb_data buf_info;
-	struct msmfb_img img;
-};
-
 struct dpp_ctrl {
 	/*
 	 *'sharp_strength' has inputs = -128 <-> 127
@@ -276,7 +264,7 @@ struct mdp_overlay {
 	uint32_t flags;
 	uint32_t id;
 	uint32_t user_data[8];
-	struct dpp_ctrl dpp;
+	struct dpp_ctrl dpp; /* XXXTDM: not implemented */
 };
 
 struct msmfb_overlay_3d {
@@ -302,17 +290,7 @@ struct mdp_histogram {
 	uint32_t *b;
 };
 
-
-/*
-
-	mdp_block_type defines the identifiers for each of pipes in MDP 4.3
-
-	MDP_BLOCK_RESERVED is provided for backward compatibility and is
-	deprecated. It corresponds to DMA_P. So MDP_BLOCK_DMA_P should be used
-	instead.
-
-*/
-
+/* XXXTDM: for userspace, unimplemented */
 enum {
 	MDP_BLOCK_RESERVED = 0,
 	MDP_BLOCK_OVERLAY_0,
@@ -327,103 +305,11 @@ enum {
 	MDP_BLOCK_MAX,
 };
 
-struct mdp_pcc_coeff {
-	uint32_t c, r, g, b, rr, gg, bb, rg, gb, rb, rgb_0, rgb_1;
-};
-
-struct mdp_pcc_cfg_data {
-	uint32_t block;
-	uint32_t ops;
-	struct mdp_pcc_coeff r, g, b;
-};
-
-struct mdp_csc_cfg {
-	/* flags for enable CSC, toggling RGB,YUV input/output */
-	uint32_t flags;
-	uint32_t csc_mv[9];
-	uint32_t csc_pre_bv[3];
-	uint32_t csc_post_bv[3];
-	uint32_t csc_pre_lv[6];
-	uint32_t csc_post_lv[6];
-};
-
-struct mdp_csc_cfg_data {
-	uint32_t block;
-	struct mdp_csc_cfg csc_data;
-};
-
-enum {
-	mdp_lut_igc,
-	mdp_lut_pgc,
-	mdp_lut_hist,
-	mdp_lut_max,
-};
-
-
-struct mdp_igc_lut_data {
-	uint32_t block;
-	uint32_t len, ops;
-	uint32_t *c0_c1_data;
-	uint32_t *c2_data;
-};
-
-struct mdp_ar_gc_lut_data {
-	uint32_t x_start;
-	uint32_t slope;
-	uint32_t offset;
-};
-
-struct mdp_pgc_lut_data {
-	uint32_t block;
-	uint32_t flags;
-	uint8_t num_r_stages;
-	uint8_t num_g_stages;
-	uint8_t num_b_stages;
-	struct mdp_ar_gc_lut_data *r_data;
-	struct mdp_ar_gc_lut_data *g_data;
-	struct mdp_ar_gc_lut_data *b_data;
-};
-
-
-struct mdp_hist_lut_data {
-	uint32_t block;
-	uint32_t ops;
-	uint32_t len;
-	uint32_t *data;
-};
-
-
-struct mdp_lut_cfg_data {
-	uint32_t lut_type;
-	union {
-		struct mdp_igc_lut_data igc_lut_data;
-		struct mdp_pgc_lut_data pgc_lut_data;
-		struct mdp_hist_lut_data hist_lut_data;
-	} data;
-};
-
-enum {
-	mdp_op_pcc_cfg,
-	mdp_op_csc_cfg,
-	mdp_op_lut_cfg,
-	mdp_op_max,
-};
-
-struct msmfb_mdp_pp {
-	uint32_t op;
-	union {
-		struct mdp_pcc_cfg_data pcc_cfg_data;
-		struct mdp_csc_cfg_data csc_cfg_data;
-		struct mdp_lut_cfg_data lut_cfg_data;
-	} data;
-};
-
-
 struct mdp_page_protection {
 	uint32_t page_protection;
 };
 
-
+/* XXXTDM: not implemented */
 struct mdp_mixer_info {
 	int pndx;
 	int pnum;
@@ -434,12 +320,12 @@ struct mdp_mixer_info {
 
 #define MAX_PIPE_PER_MIXER  4
 
+/* XXXTDM: not implemented */
 struct msmfb_mixer_info_req {
 	int mixer_num;
 	int cnt;
 	struct mdp_mixer_info info[MAX_PIPE_PER_MIXER];
 };
-
 
 #ifdef __KERNEL__
 

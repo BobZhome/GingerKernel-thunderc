@@ -229,7 +229,9 @@ static struct aat28xx_ctrl_tbl aat2862bl_normal_tbl[] = {
 	 * Change register value to do not turn on the bakclight at operatoin mode setting. (0xF2 -> 0xD2)
 	 * 2010-07-31. minjong.gong@lge.com 
 	 */
-	{ 0x03, 0xD2 },  /* MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled), LCD_ON(5)=high(On),  Brightness=Default (0x12, 13th setp)*/
+//LG_CHANGE [panchaxari.t@lge.com] 2011-10-12 , LCD brightness [START]	 
+	{ 0x03, 0xF2 },  /* MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled), LCD_ON(5)=high(On),  Brightness=Default (0x12, 13th setp)*/
+//LG_CHANGE [panchaxari.t@lge.com] 2011-10-12 , LCD brightness [START]	
 #endif
 	{ 0xFF, 0xFE }	 /* end of command */
 };
@@ -445,11 +447,17 @@ int aat28xx_ldo_enable(struct device *dev, unsigned num, unsigned enable)
 	if (num > 0 && num <= AAT28XX_LDO_NUM) {
 		if ((adap=dev_get_drvdata(dev)) && (client=i2c_get_adapdata(adap))) {
 			drvdata = i2c_get_clientdata(client);
+//LG_CHANGE [panchaxari.t@lge.com] 2011-10-12 , LCD brightness [START]			
 			if (enable) {
-				if (drvdata->ldo_ref[num-1]++ == 0) {
+				// LGE_CHAGNE [dojip.kim@lge.com] 2010-07-12, 
+				// should update the ref count only if success
+				if (drvdata->ldo_ref[num-1] == 0) {
 					dprintk("ref count = 0, call aat28xx_set_ldos\n");
 					err = aat28xx_set_ldos(client, num, enable);
+					if (!err)
+						drvdata->ldo_ref[num-1]++;
 				}
+//LG_CHANGE [panchaxari.t@lge.com] 2011-10-12 , LCD brightness [END]				
 			}
 			else {
 				if (--drvdata->ldo_ref[num-1] == 0) {
@@ -559,14 +567,6 @@ static void aat28xx_go_opmode(struct aat28xx_driver_data *drvdata)
 
 static void aat28xx_device_init(struct aat28xx_driver_data *drvdata)
 {
-/* LGE_CHANGE.
-  * Do not initialize aat28xx when system booting. The aat28xx is already initialized in oemsbl or LK !!
-  * 2010-08-16, minjong.gong@lge.com
-  */
-	if (system_state == SYSTEM_BOOTING) {
-		aat28xx_go_opmode(drvdata);
-		return;
-	}
 	aat28xx_hw_reset(drvdata);
 	aat28xx_go_opmode(drvdata);
 }
@@ -674,12 +674,26 @@ static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
 
 	if (drvdata->state == POWEROFF_STATE) {
 		aat28xx_poweron(drvdata);
-		/* LGE_CHANGE
-		 * Because the aat28xx_go_opmode is called in the aat28xx_poweron above, so I remove below function.
-		 * If it is called two times when the previous state of AAT2862 is POWEROFF_STATE, it causes malfucction.
-		 * 2010-07-31. minjong.gong@lge.com
-		 */
-		//aat28xx_go_opmode(drvdata);
+//LG_CHANGE [panchaxari.t@lge.com] 2011-10-12 , LCD brightness [START]		
+		aat28xx_go_opmode(drvdata);
+		if (drvdata->mode == NORMAL_MODE) {
+			if(drvdata->version == 2862) {
+				/* LGE_CHANGE
+				  * Using 'Fade in' function supported by AAT2862 when wakeup.
+				  * 2010-08-21, minjong.gong@lge.com
+				 */
+				aat28xx_write(drvdata->client, drvdata->reg_addrs.fade, 0x00);	/* Floor current : 0.48mA */
+				aat28xx_intensity = (~(drvdata->intensity)& 0x1F);	/* Invert BL control bits and Clear upper 3bits */
+				aat28xx_intensity |= 0xA0;							/* MEQS(7)=1, Disable Fade(6)=0, LCD_ON(5)=1*/
+				aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, aat28xx_intensity);
+				aat28xx_write(drvdata->client, drvdata->reg_addrs.fade, 0x08);	/* Fade in to intensity brightness in 1000ms. */
+			} else {
+				aat28xx_set_table(drvdata, drvdata->cmds.normal);
+				aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, drvdata->intensity);
+			}
+			drvdata->state = NORMAL_STATE;
+		}	
+//LG_CHANGE [panchaxari.t@lge.com] 2011-10-12 , LCD brightness [END]			
 	} else if (drvdata->state == SLEEP_STATE) {
 		if (drvdata->mode == NORMAL_MODE) {
 			if(drvdata->version == 2862) {

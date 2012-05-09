@@ -354,9 +354,20 @@ static int usb_get_max_power(struct usb_info *ui)
 		#endif
 	   /*LGSI_CHANGE_E	<pranav.s@lge.com>:TA charging current for sprint changed to 700mA */ 
        }
-	   
+	  	if (suspended || !configured)
+// LGE_CHANGE [dojip.kim@lge.com] 2010-07-17, merged from VS740
+// LGE_CHANGE wppnghee.park : to charge phone 
+// when usb cable is connected but not configured.
+// charging current will be changed to 400mA at ARM9 side.
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+		return 10;
+#else
+		return 0;
+#endif 
+#if 0
 	if (suspended || !configured)
 		return 0;
+#endif
 	return bmaxpow;
 }
 
@@ -911,6 +922,9 @@ static void handle_setup(struct usb_info *ui)
         udelay(10);
 
 	memcpy(&ctl, ui->ep0out.head->setup_data, sizeof(ctl));
+	/* Ensure buffer is read before acknowledging to h/w */
+	dsb();
+
 	writel(EPT_RX(0), USB_ENDPTSETUPSTAT);
 
 	if (ctl.bRequestType & USB_DIR_IN)
@@ -1428,6 +1442,9 @@ static void usb_reset(struct usb_info *ui)
 
 	/* enable interrupts */
 	writel(STS_URI | STS_SLI | STS_UI | STS_PCI, USB_USBINTR);
+
+	/* Ensure that h/w RESET is completed before returning */
+	dsb();
 
 	atomic_set(&ui->running, 1);
 }
@@ -2194,6 +2211,9 @@ static int msm72k_pullup_internal(struct usb_gadget *_gadget, int is_active)
 		ulpi_write(ui, 0x48, 0x04);
 	}
 
+	/* Ensure pull-up operation is completed before returning */
+	dsb();
+
 	return 0;
 }
 
@@ -2242,6 +2262,9 @@ static int msm72k_wakeup(struct usb_gadget *_gadget)
 
 	if (!is_usb_active())
 		writel(readl(USB_PORTSC) | PORTSC_FPR, USB_PORTSC);
+
+	/* Ensure that USB port is resumed before enabling the IRQ */
+	dsb();
 
 	enable_irq(otg->irq);
 

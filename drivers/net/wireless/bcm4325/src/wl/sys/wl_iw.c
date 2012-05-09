@@ -94,7 +94,10 @@ static int wl_iw_softap_deassoc_stations(struct net_device *dev);	//patch ROMTER
 		func_call;		\
 	} while (0)
 
-static int		g_onoff = G_WLAN_SET_ON;
+// resumed_timeout_patch_1020
+//static int		g_onoff = G_WLAN_SET_ON;
+int 	g_onoff = G_WLAN_SET_ON;
+
 
 #if defined(STA) || defined(BCMDONGLEHOST)
 extern bool wl_iw_conn_status_str(uint32 event_type, uint32 status,

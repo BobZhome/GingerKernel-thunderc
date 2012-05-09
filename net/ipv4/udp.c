@@ -100,6 +100,7 @@
 #include <linux/skbuff.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+
 #include <net/net_namespace.h>
 #include <net/icmp.h>
 #include <net/route.h>
@@ -963,7 +964,9 @@ out:
 	if (free)
 		kfree(ipc.opt);
 	if (!err)
+
 		return len;
+
 	/*
 	 * ENOBUFS = no kernel mem, SOCK_NOSPACE = no sndbuf space.  Reporting
 	 * ENOBUFS might not be good (it's not tunable per se), but otherwise
@@ -1196,6 +1199,8 @@ try_again:
 out_free:
 	skb_free_datagram_locked(sk, skb);
 out:
+
+
 	return err;
 
 csum_copy_err:
@@ -1206,6 +1211,9 @@ csum_copy_err:
 
 	if (noblock)
 		return -EAGAIN;
+
+
+
 	goto try_again;
 }
 

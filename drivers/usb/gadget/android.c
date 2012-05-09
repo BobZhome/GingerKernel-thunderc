@@ -636,10 +636,11 @@ void android_enable_function(struct usb_function *f, int enable)
 	 * enabling of ums is seperated from other function handling.
 	 * 2011-02-11, hyunhui.park@lge.com
 	 */
-	if (!strcmp(f->name, "usb_mass_storage")) {
+//	if (!strcmp(f->name, "usb_mass_storage")) {
+	if (!strcmp(f->name, "adb")) {
 		/* We force to change mode even if mass storage is already enabled */
 		f->disabled = disable;
-		if (enable) {
+		if (!enable) {
 			/* switch to mass storage only */
 			set_device_class(dev->cdev->desc, USB_CLASS_PER_INTERFACE,
 					0x00, 0x00);
@@ -647,7 +648,8 @@ void android_enable_function(struct usb_function *f, int enable)
 			lgeusb_info("Switch to UMS only %x\n", LGE_UMSONLY_PID);
 		} else {
 			set_device_class(dev->cdev->desc, USB_CLASS_COMM, 0x00, 0x00);
-			android_set_default_product(dev->product_id);
+			//android_set_default_product(dev->product_id);
+			android_set_default_product(0x618E);
 		}
 
 		product_id = get_product_id(dev);

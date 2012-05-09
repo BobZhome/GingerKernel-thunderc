@@ -99,7 +99,11 @@ tos_tg6(struct sk_buff *skb, const struct xt_action_param *par)
 	u_int8_t orig, nv;
 
 	orig = ipv6_get_dsfield(iph);
+<<<<<<< HEAD
 	nv   = (orig & info->tos_mask) ^ info->tos_value;
+=======
+	nv   = (orig & ~info->tos_mask) ^ info->tos_value;
+>>>>>>> 42ebc01... hope get rid finally of these kernel sockets shits
 
 	if (orig != nv) {
 		if (!skb_make_writable(skb, sizeof(struct iphdr)))

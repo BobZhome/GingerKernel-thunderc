@@ -61,10 +61,10 @@
 
 static uint32_t open_count;
 struct msm_rpc_client *client;
-
+//LG_CHANGE [sinjo.mattappallil] 2011-10-12 , charger detection issue [START]
 // LGE_CHANGE [dojip.kim@lge.com] 2010-08-12, initial value 
-
-
+static int old_cable_type = -1;
+//LG_CHANGE [sinjo.mattappallil] 2011-10-12 , charger detection issue [END]
 int LG_rapi_init(void)
 {
 	client = oem_rapi_client_init();
@@ -89,7 +89,7 @@ int msm_chg_LG_cable_type(void)
 	struct oem_rapi_client_streaming_func_arg arg;
 	struct oem_rapi_client_streaming_func_ret ret;
 	char output[LG_RAPI_CLIENT_MAX_OUT_BUFF_SIZE];
-	
+	int retValue = 0;
 	/* LGE_CHANGE [dojip.kim@lge.com] 2010-09-12, 
 	 * add error control code, try 2 times if error occurs
 	 * (from VS660)
@@ -116,16 +116,41 @@ int msm_chg_LG_cable_type(void)
 		ret.output = NULL;
 		ret.out_len = NULL;
 
+//LG_CHANGE [sinjo.mattappallil] 2011-10-12 , charger detection issue [START]
 		rc = oem_rapi_client_streaming_function(client, &arg, &ret);
-    	memcpy(output, ret.output, *ret.out_len);
+		if (rc < 0) {
+			retValue = old_cable_type;
+		} 
+		else {
+			/* LGE_CHANGE [dojip.kim@lge.com] 2010-06-21, memcpy */
+			memcpy(output, ret.output, *ret.out_len);
+			retValue = GET_INT32(output);
+
+			if (retValue == 0) // no init cable 
+				retValue = old_cable_type;
+			else //read ok.
+				old_cable_type = retValue;
+		}
+
+		/* LGE_CHANGE [dojip.kim@lge.com] 2010-06-21, free the allocated mem */
+		if (ret.output)
+			kfree(ret.output);
+		if (ret.out_len)
+			kfree(ret.out_len);
 
 	} while (rc < 0 && errCount++ < 3);
 
+	// LGE_CHANGE [dojip.kim@lge.com] 2010-07-09, 
+	// workaround for wrong detection cable type in Rev.A
+#ifdef CONFIG_MACH_MSM7X27_THUNDERC_SPRINT
+	if (lge_bd_rev < HW_PCB_REV_B && retValue == 10) // LT_130K
+		retValue = 0;
+#endif
 
-	kfree(ret.output);
-	kfree(ret.out_len);
-	
-return (GET_INT32(output)); 
+	// LGE_CHANGE [dojip.kim@lge.com] 2010-07-09, debugging message */
+	printk("USB Cable type: %s(): %d\n", __func__, retValue);
+//LG_CHANGE [sinjo.mattappallil] 2011-10-12 , charger detection issue [END]	
+	return retValue;
 }
 
 

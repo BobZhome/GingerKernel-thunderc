@@ -2915,6 +2915,7 @@ static int __msm_release(struct msm_sync *sync)
 		}
 		msm_queue_drain(&sync->pict_q, list_pict);
 
+
 		wake_unlock(&sync->wake_lock);
 		sync->apps_id = NULL;
 		pr_info("%s: completed\n", __func__);
@@ -3494,6 +3495,12 @@ vfe_for_config:
 	CDBG("%s: msm_enqueue event_q\n", __func__);
 	if (sync->frame_q.len <= 100 && sync->event_q.len <= 100) {
 		msm_enqueue(&sync->event_q, &qcmd->list_config);
+
+
+
+
+
+
 	} else {
 		pr_err("%s, Error Queue limit exceeded f_q = %d, e_q = %d\n",
 			__func__, sync->frame_q.len, sync->event_q.len);
@@ -3609,6 +3616,7 @@ static int __msm_open(struct msm_sync *sync, const char *const apps_id,
 {
 	int rc = 0;
 
+
 	mutex_lock(&sync->lock);
 	if (sync->apps_id && strcmp(sync->apps_id, apps_id)
 				&& (!strcmp(MSM_APPS_ID_V4L2, apps_id))) {
@@ -3640,6 +3648,7 @@ static int __msm_open(struct msm_sync *sync, const char *const apps_id,
 			if (rc < 0) {
 				pr_err("%s: sensor init failed: %d\n",
 					__func__, rc);
+
 				goto msm_open_done;
 			}
 			rc = sync->vfefn.vfe_init(&msm_vfe_s,
@@ -3647,6 +3656,8 @@ static int __msm_open(struct msm_sync *sync, const char *const apps_id,
 			if (rc < 0) {
 				pr_err("%s: vfe_init failed at %d\n",
 					__func__, rc);
+
+
 				goto msm_open_done;
 			}
 		} else {
@@ -3671,6 +3682,11 @@ static int __msm_open(struct msm_sync *sync, const char *const apps_id,
 msm_open_done:
 	mutex_unlock(&sync->lock);
 	return rc;
+
+
+
+
+
 }
 
 static int msm_open_common(struct inode *inode, struct file *filep,
@@ -3703,13 +3719,13 @@ static int msm_open_common(struct inode *inode, struct file *filep,
 	return rc;
 }
 
-static int msm_open_frame(struct inode *inode, struct file *filep)
-{
-	struct msm_cam_device *pmsm =
-		container_of(inode->i_cdev, struct msm_cam_device, cdev);
-	msm_queue_drain(&pmsm->sync->frame_q, list_frame);
-	return msm_open_common(inode, filep, 1, 0);
-}
+
+
+
+
+
+
+
 
 static int msm_open(struct inode *inode, struct file *filep)
 {

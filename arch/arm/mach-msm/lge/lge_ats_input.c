@@ -2,19 +2,19 @@
  *  arch/arm/mach-msm/lge/lge_ats_input.c
  *
  *  Copyright (c) 2010 LGE.
- *  
+ *
  *  All source code in this file is licensed under the following license
  *  except where indicated.
- *  
+ *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
  *  version 2 as published by the Free Software Foundation.
- *  
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *  See the GNU General Public License for more details.
- *  
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, you can find it at http://www.fsf.org
  */
@@ -49,7 +49,7 @@ static int  __init ats_input_probe(struct platform_device *pdev)
 	set_bit(ABS_MT_TOUCH_MAJOR, ats_input_dev->absbit);
 	clear_bit(EV_REP, ats_input_dev->evbit);
 
-	/* We are not a QWERTY keyboard */
+	/* We are NOT a QWERTY keyboard */
 	clear_bit(EV_KEY, ats_input_dev->evbit);
 
 	rc = input_register_device(ats_input_dev);

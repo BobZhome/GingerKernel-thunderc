@@ -1034,7 +1034,7 @@ dhd_watchdog_thread(void *data)
 	/* Run until signal received */
 	while (1) {
 		if (down_interruptible (&dhd->watchdog_sem) == 0) {
-			if (dhd->pub.dongle_reset == FALSE) {
+			if (dhd->pub.dongle_reset == FALSE && dhd_early_suspend_state() == FALSE) {
 				WAKE_LOCK(&dhd->pub, WAKE_LOCK_WATCHDOG);
 
 				/* Call the bus module watchdog */
@@ -1533,6 +1533,9 @@ done:
 	return OSL_ERROR(bcmerror);
 }
 
+// resumed_timeout_patch_1020
+extern int g_onoff;
+
 /* LGE_CHANGE_S, jisung.yang@lge.com, 2011-4-24, reset wi-fi driver when there a resumed on timeout */
 #if defined(CONFIG_LGE_BCM432X_PATCH)		//by sjpark 11-01-11 : send hang event
 int net_os_send_hang_message(struct net_device *dev)
@@ -1543,8 +1546,10 @@ int net_os_send_hang_message(struct net_device *dev)
 	if (dhd) {
 		if (!dhd->hang_was_sent) {
 			dhd->hang_was_sent = 1;
-			DHD_ERROR(("%s: Event HANGED send up\n", __FUNCTION__));
-			ret = wl_iw_send_priv_event(dev, "HANGED");
+			DHD_ERROR(("%s: Event HANG send up\n", __FUNCTION__));
+// resumed_timeout_patch_1020
+			g_onoff = G_WLAN_SET_OFF;			
+			ret = wl_iw_send_priv_event(dev, "HANG"); // 111021 The HANG EVENT NAME changed from HANGED to HANG for P505 AT&T GB
 		}
 	}
 	return ret;

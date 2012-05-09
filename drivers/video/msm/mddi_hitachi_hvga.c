@@ -154,7 +154,6 @@ static struct display_table mddi_hitachi_display_off[] = {
 	{REGFLAG_DELAY, 130, {}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
-#endif
 static struct display_table mddi_hitachi_sleep_mode_on_data[] = {
 	// Display off sequence
 	{0x28, 4, {0x00, 0x00, 0x00, 0x00}},
@@ -165,7 +164,7 @@ static struct display_table mddi_hitachi_sleep_mode_on_data[] = {
 	{REGFLAG_DELAY, 40, {}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
-
+#endif
 static struct display_table mddi_hitachi_initialize_1st[] = {
 
 	// Power ON Sequence 
@@ -244,21 +243,21 @@ static struct display_table mddi_hitachi_initialize_3rd_vs660[] = {
 			    0x3f, 0x66, 0x02, 0x3f, 0x66, 0x02, 0x00, 0x00}},
 
 	// VCMCTL 
-	// Revert 6th parameter. From 0x04 to 0x00. 2010-09-02. minjong.gong@lge.com
-	{0xf5, 12, {0x00, 0x59, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00,
+	// [Apply 4th Table] Change 6th parameter. From 0x00 to 0x04. 2010-08-03. minjong.gong@lge.com
+	{0xf5, 12, {0x00, 0x59, 0x45, 0x00, 0x00, 0x04, 0x00, 0x00,
 			    0x00, 0x00, 0x59, 0x45}},
 	{REGFLAG_DELAY, 10, {}},
 
 	// MANPWRSEQ 
-	// Revert 1st parameter. From 0x03 to 0x01. 2010-09-02. minjong.gong@lge.com
-	{0xf3, 8,  {0x01, 0x6e, 0x15, 0x07, 0x03, 0x00, 0x00, 0x00}},
+	// [Apply 4th Table] Change 1st parameter. From 0x01 to 0x03. 2010-08-03. minjong.gong@lge.com
+	{0xf3, 8,  {0x03, 0x6e, 0x15, 0x07, 0x03, 0x00, 0x00, 0x00}},
 	
 	// DISCTL 
-	// Revert 2nd and 15th parameters. From 0x54 to 0x4d.
-	// Revert 6th, 7th, 9th and 10th parameters. From 0x08 to ox00.
-	// 2010-09-02. minjong.gong@lge.com
-	{0xf2, 20, {0x3b, 0x4d, 0x0f, 0x08, 0x08, 0x00, 0x00, 0x00,
-			    0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x4d, 0x08,
+	// Change 2nd and 15th parameters. From 0x4d to 0x54.
+	// When useing 0x4D (65Hz), it causes decreasing the touch sensitivity.
+	// 2010-08-21. minjong.gong@lge.com
+	{0xf2, 20, {0x3b, 0x54, 0x0f, 0x08, 0x08, 0x08, 0x08, 0x00,
+			    0x08, 0x08, 0x00, 0x04, 0x00, 0x00, 0x54, 0x08,
 			    0x08, 0x08, 0x08, 0x00}},
 
 	{0xf6, 12, {0x04, 0x00, 0x08, 0x03, 0x01, 0x00, 0x01, 0x00,
@@ -637,6 +636,7 @@ static void mddi_hitachi_lcd_vsync_detected(boolean detected)
 #ifdef CONFIG_MACH_MSM7X27_THUNDERC_SPRINT
 extern int ts_set_vreg(unsigned char onoff);
 #endif
+
 static void hitachi_workaround(void)
 {
 	if (lge_bd_rev <= LGE_REV_E) {
@@ -659,7 +659,7 @@ static int mddi_hitachi_lcd_on(struct platform_device *pdev)
 
 #if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC) || defined(CONFIG_MACH_MSM7X27_THUNDERA)
 	if (system_state == SYSTEM_BOOTING && mddi_hitachi_pdata->initialized) {
-		hitachi_workaround();
+		hitachi_workaround(); 
 		is_lcd_on = TRUE;
 		return 0;
 	}
@@ -748,7 +748,7 @@ static int mddi_hitachi_lcd_store_on(void)
 
 static int mddi_hitachi_lcd_off(struct platform_device *pdev)
 {
-	hitachi_display_table(mddi_hitachi_sleep_mode_on_data, sizeof(mddi_hitachi_sleep_mode_on_data)/sizeof(struct display_table));
+//	hitachi_display_table(mddi_hitachi_sleep_mode_on_data, sizeof(mddi_hitachi_sleep_mode_on_data)/sizeof(struct display_table));
 	mddi_hitachi_lcd_panel_poweroff();
 	is_lcd_on = FALSE;
 	return 0;
@@ -779,7 +779,7 @@ ssize_t mddi_hitachi_lcd_store_onoff(struct device *dev, struct device_attribute
 		is_lcd_on = FALSE;
 	}
 
-	return 0;
+	return count;
 }
 
 int mddi_hitachi_position(void)
@@ -856,6 +856,7 @@ static int mddi_hitachi_lcd_init(void)
 /* LGE_CHANGE [james.jang@lge.com] 2010-08-28, probe LCD */
 #if defined(CONFIG_FB_MSM_MDDI_NOVATEK_HITACHI_HVGA)
   gpio_tlmm_config(GPIO_CFG(101, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	 gpio_direction_input(101);
 //	gpio_configure(101, GPIOF_CFG_INPUT);
   if (gpio_get_value(101) != 0)
 		return -ENODEV;
@@ -875,7 +876,7 @@ static int mddi_hitachi_lcd_init(void)
 		pinfo->bpp = 16;
 	
 		// vsync config
-		pinfo->lcd.vsync_enable = TRUE;
+		pinfo->lcd.vsync_enable = FALSE;
 		pinfo->lcd.refx100 = (mddi_hitachi_rows_per_second * 100) /
                         		mddi_hitachi_rows_per_refresh;
 
@@ -888,7 +889,7 @@ static int mddi_hitachi_lcd_init(void)
 		pinfo->lcd.v_front_porch = 6;
 		pinfo->lcd.v_pulse_width = 4;
 
-		pinfo->lcd.hw_vsync_mode = TRUE;
+		pinfo->lcd.hw_vsync_mode = FALSE;
 		pinfo->lcd.vsync_notifier_period = (1 * HZ);
 
 		pinfo->bl_max = 4;

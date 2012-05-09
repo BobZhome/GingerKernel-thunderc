@@ -56,10 +56,10 @@
 /* LGE_CHANGE_S [jisung.yang@lge.com] 2010-04-24, for gpio_to_irq */
 #if defined(CONFIG_LGE_BCM432X_PATCH)
 #include <asm/gpio.h>
-/*LGE_CHANGE_S, [dongp.kim@lge.com], 2010-03-17, mmc_fmax is 24576000Hz for Wi-Fi */ 
-//#define BRCM_WLAN_SLOT 2
-#define BRCM_WLAN_SLOT 100 // give 50MHz for test
-/*LGE_CHANGE_E, [dongp.kim@lge.com], 2010-03-17, mmc_fmax is 24576000Hz for Wi-Fi */ 
+/*LGE_CHANGE_S, [dongp.kim@lge.com], 2010-03-17, mmc_fmax is 24576000Hz for Wi-Fi */
+#define BRCM_WLAN_SLOT 2
+//#define BRCM_WLAN_SLOT 100 // give 50MHz for test
+/*LGE_CHANGE_E, [dongp.kim@lge.com], 2010-03-17, mmc_fmax is 24576000Hz for Wi-Fi */
 #endif
 /* LGE_CHANGE_E [jisung.yang@lge.com] 2010-04-24, for gpio_to_irq */
 
@@ -151,7 +151,7 @@ void unregister_mmc_card_pm(void)
 {
 	printk("%s: [WIFI] Unregistering suspend/resume callbacks.  \n", __FUNCTION__);
 	dhdpm.suspend = NULL;
-	dhdpm.resume  = NULL;	
+	dhdpm.resume  = NULL;
 }
 EXPORT_SYMBOL(unregister_mmc_card_pm);
 #endif
@@ -864,11 +864,7 @@ msmsdcc_irq(int irq, void *dev_id)
 			host->mmc->ops->set_ios(host->mmc, &host->mmc->ios);
 			spin_lock(&host->lock);
 			if (host->plat->cfg_mpm_sdiowakeup &&
-				(host->mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
-				!host->sdio_irq_disabled) {
-				host->sdio_irq_disabled = 1;
-				wake_lock(&host->sdio_wlock);
-			}
+				(host->mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ))
 			/* only ansyc interrupt can come when clocks are off */
 			writel(MCI_SDIOINTMASK, host->base + MMCICLEAR);
 		}
@@ -888,25 +884,69 @@ msmsdcc_irq(int irq, void *dev_id)
 		msmsdcc_print_status(host, "irq0-p", status);
 #endif
 
-		if ((host->plat->dummy52_required) &&
-		    (host->dummy_52_state == DUMMY_52_STATE_SENT)) {
-			if (status & MCI_PROGDONE) {
-				host->dummy_52_state = DUMMY_52_STATE_NONE;
-				host->curr.cmd = NULL;
-				spin_unlock(&host->lock);
-				msmsdcc_request_start(host, host->curr.mrq);
-				return IRQ_HANDLED;
-			}
-			break;
-		}
-
-		data = host->curr.data;
+/* CR 288843 - Stability
+ * WLAN hang is observed while running the stress tests
+ * 
+ * Problem description
+ * WLAN operation is stuck while running the stress test of UDP -DL traffic
+ * in UAPSD after 13 hours. APPS Kernel logs indicate an exception "irq 135:
+ * nobody cared (try booting with the "irqpoll" option)".
+ * 
+ * Failure frequency: Rarely
+ * Scenario frequency: Uncommon
+ * Change description
+ * When WLAN is enabled with SDIO interface, SDIO operational interrupt can
+ * be raised while client is in busy state asserting DAT0 line. Skipping
+ * servicing this interrupt while dummy CMD52 (sense DAT0 line deassertion)
+ * in progress can cause the SDCC IRQ line itself be disabled by kernel due
+ * to sdcc irq handlers returning IRQ_NONE without handling the interrupt.
+ * When interrupt is disabled the communication between the SDIO client and
+ * SDCC host controller is stopped while a pending command is in progress
+ * and hence WLAN operation is stuck forever and LOGP recovery cannot be
+ * processed.
+ * Files affected
+ * kernel/drivers/mmc/host/msm_sdcc.c
+ */
+#if 1 //QCT SBA 404016
 #ifdef CONFIG_MMC_MSM_SDIO_SUPPORT
 		if (status & MCI_SDIOINTROPE) {
 			if (host->sdcc_suspending)
 				wake_lock(&host->sdio_suspend_wlock);
 			mmc_signal_sdio_irq(host->mmc);
 		}
+#endif
+#endif
+
+		if ((host->plat->dummy52_required) &&
+		    (host->dummy_52_state == DUMMY_52_STATE_SENT)) {
+			if (status & (MCI_PROGDONE | MCI_CMDCRCFAIL |
+					  MCI_CMDTIMEOUT)) {
+				if (status & MCI_CMDTIMEOUT)
+					pr_debug("%s: dummy CMD52 timeout\n",
+						mmc_hostname(host->mmc));
+				if (status & MCI_CMDCRCFAIL)
+					pr_debug("%s: dummy CMD52 CRC failed\n",
+						mmc_hostname(host->mmc));
+				host->dummy_52_state = DUMMY_52_STATE_NONE;
+				host->curr.cmd = NULL;
+				msmsdcc_request_start(host, host->curr.mrq);
+				spin_unlock(&host->lock);
+				return IRQ_HANDLED;
+			}
+			break;
+		}
+
+		data = host->curr.data;
+#if 1 //QCT SBA 404016
+// move upward before handling dummy52
+#else
+#ifdef CONFIG_MMC_MSM_SDIO_SUPPORT
+		if (status & MCI_SDIOINTROPE) {
+			if (host->sdcc_suspending)
+				wake_lock(&host->sdio_suspend_wlock);
+			mmc_signal_sdio_irq(host->mmc);
+		}
+#endif
 #endif
 		/*
 		 * Check for proper command response
@@ -1728,15 +1768,19 @@ msmsdcc_probe(struct platform_device *pdev)
 	 */
 	mmc->ops = &msmsdcc_ops;
 	mmc->f_min = plat->msmsdcc_fmin;
-/*LGE_CHANGE_S, [dongp.kim@lge.com], 2010-03-17, mmc_fmax is 24576000Hz for Wi-Fi */ 
+/*LGE_CHANGE_S, [dongp.kim@lge.com], 2010-03-17, mmc_fmax is 24576000Hz for Wi-Fi */
 #if !defined(CONFIG_LGE_BCM432X_PATCH)
 	mmc->f_max = plat->msmsdcc_fmax;
 #else
-	if (host->pdev_id == BRCM_WLAN_SLOT){ 
+	if (host->pdev_id == BRCM_WLAN_SLOT){
 		mmc->f_max = 24576000;
+		printk("host->pdev_id == BRCM_WLAN_SLOT and host->pdev_id is [%d]\n",host->pdev_id);
 		printk("%s : slot set f_max [%d]\n",mmc_hostname(host->mmc),mmc->f_max);
 	}else{
+
 		mmc->f_max = plat->msmsdcc_fmax;
+		printk("host->pdev_id != BRCM_WLAN_SLOT and host->pdev_id is [%d]\n",host->pdev_id);
+		printk("%s : slot set f_max [%d]\n",mmc_hostname(host->mmc),mmc->f_max);
 	}
 #endif	/* CONFIG_LGE_BCM432X_PATCH */
 	mmc->ocr_avail = plat->ocr_mask;
@@ -1764,7 +1808,20 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->max_phys_segs = NR_SG;
 	mmc->max_hw_segs = NR_SG;
 	mmc->max_blk_size = 4096;	/* MCI_DATA_CTL BLOCKSIZE up to 4096 */
+/*
+ * CR275988
+ * Overflow detected in max_blk_count value 
+ * Problem description
+ * In msmsdcc_probe function max_blk_count value is initialized to 65536 and this causes some of the comparisions to fail as this is treated as 0 due to overflow. 
+ * Failure frequency: Every Time
+ * Scenario frequency: Variable
+ * Change description
+ * Initialize max_blk_count value to max value of 65535.
+	mmc->max_blk_count = 65536;
+*/
 	mmc->max_blk_count = 65535;
+	printk("mmc->max_blk_count is [%d]\n",mmc->max_blk_count);
+	
 
 	mmc->max_req_size = 33554432;	/* MCI_DATA_LENGTH is 25 bits */
 	mmc->max_seg_size = mmc->max_req_size;
@@ -2094,12 +2151,15 @@ msmsdcc_runtime_suspend(struct device *dev)
 				mmc->card->type == MMC_TYPE_SDIO && host->plat->status_irq != gpio_to_irq(CONFIG_BCM4325_GPIO_WL_RESET)) {
 #endif			
 /* LGE_CHANGE_E, [jisung.yang@lge.com], 2010-05-04, <do not do for wifi> */			
+			if (host->plat->sdiowakeup_irq) {
 			host->sdio_irq_disabled = 0;
 			enable_irq_wake(host->plat->sdiowakeup_irq);
 			enable_irq(host->plat->sdiowakeup_irq);
-		}
+		}}
 		host->sdcc_suspending = 0;
 		mmc->suspend_task = NULL;
+		if (rc && wake_lock_active(&host->sdio_suspend_wlock))
+		wake_unlock(&host->sdio_suspend_wlock);
 	}
 	return rc;
 }
@@ -2110,7 +2170,7 @@ msmsdcc_runtime_resume(struct device *dev)
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	unsigned long flags;
-	int release_lock = 0;
+	
 
 	if (mmc) {
 		mmc->ios.clock = host->clk_rate;
@@ -2133,9 +2193,8 @@ msmsdcc_runtime_resume(struct device *dev)
 				disable_irq_wake(host->plat->sdiowakeup_irq);
 				host->sdio_irq_disabled = 1;
 			}
-		} else {
-			release_lock = 1;
-		}
+}
+
 
 		spin_unlock_irqrestore(&host->lock, flags);
 
@@ -2158,7 +2217,8 @@ msmsdcc_runtime_resume(struct device *dev)
 		 * After resuming the host wait for sometime so that
 		 * the SDIO work will be processed.
 		 */
-		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) && release_lock)
+		if ((mmc->pm_flags & MMC_PM_WAKE_SDIO_IRQ) &&
+			wake_lock_active(&host->sdio_wlock))
 			wake_lock_timeout(&host->sdio_wlock, 1);
 
 		 wake_unlock(&host->sdio_suspend_wlock);

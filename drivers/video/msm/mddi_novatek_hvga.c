@@ -1219,7 +1219,8 @@ static int mddi_novatek_lcd_init(void)
 #if defined(CONFIG_FB_MSM_MDDI_NOVATEK_HITACHI_HVGA)
 	gpio_tlmm_config(GPIO_CFG(101, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), 
 			  GPIO_CFG_ENABLE);
-//	gpio_configure(101, GPIOF_CFG_INPUT);
+	gpio_direction_input(101);
+//	gpio_*configure(101, GPIOF_CFG_INPUT);
 	if (gpio_get_value(101) != 1)
 		return -ENODEV;
 	g_mddi_lcd_probe = 1;
@@ -1237,7 +1238,7 @@ static int mddi_novatek_lcd_init(void)
 		pinfo->bpp = 16;
 	
 		// vsync config
-		pinfo->lcd.vsync_enable = TRUE;
+		pinfo->lcd.vsync_enable = FALSE;
 		pinfo->lcd.refx100 = (mddi_novatek_rows_per_second * 100) /
                         		mddi_novatek_rows_per_refresh;
 
@@ -1245,7 +1246,7 @@ static int mddi_novatek_lcd_init(void)
 		pinfo->lcd.v_front_porch = 200;
 		pinfo->lcd.v_pulse_width = 30;
 
-		pinfo->lcd.hw_vsync_mode = TRUE;
+		pinfo->lcd.hw_vsync_mode = FALSE;
 		pinfo->lcd.vsync_notifier_period = (1 * HZ);
 
 		pinfo->bl_max = 4;

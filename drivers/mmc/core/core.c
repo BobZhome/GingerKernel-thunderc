@@ -328,7 +328,11 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 			 * The limit is really 250 ms, but that is
 			 * insufficient for some crappy cards.
 			 */
-			limit_us = 800000;
+#if 1//def CONFIG_LGE_MMC_WORKAROUND//LGE_CHANGES
+			limit_us = 500000;
+#else
+			limit_us = 300000;
+#endif
 		else
 			limit_us = 100000;
 
@@ -915,7 +919,11 @@ void mmc_set_timing(struct mmc_host *host, unsigned int timing)
  * If a host does all the power sequencing itself, ignore the
  * initial MMC_POWER_UP stage.
  */
+#if 1//def CONFIG_LGE_MMC_WORKAROUND//LGE_CHANGES
+void mmc_power_up(struct mmc_host *host)
+#else
 static void mmc_power_up(struct mmc_host *host)
+#endif
 {
 	int bit;
 
@@ -938,6 +946,9 @@ static void mmc_power_up(struct mmc_host *host)
 	host->ios.timing = MMC_TIMING_LEGACY;
 	mmc_set_ios(host);
 
+#if 1//def CONFIG_LGE_MMC_WORKAROUND//LGE_CHANGES
+	printk("%s: mmc power up\n", mmc_hostname(host));
+#endif
 	/*
 	 * This delay should be sufficient to allow the power supply
 	 * to reach the minimum voltage.
@@ -953,10 +964,17 @@ static void mmc_power_up(struct mmc_host *host)
 	 * This delay must be at least 74 clock sizes, or 1 ms, or the
 	 * time required to reach a stable voltage.
 	 */
-	mmc_delay(10);
+	mmc_delay(50);
 }
+#if 1//def CONFIG_LGE_MMC_WORKAROUND//LGE_CHANGES
+EXPORT_SYMBOL(mmc_power_up);
+#endif
 
+#if 1//def CONFIG_LGE_MMC_WORKAROUND//LGE_CHANGES
+void mmc_power_off(struct mmc_host *host)
+#else
 static void mmc_power_off(struct mmc_host *host)
+#endif
 {
 	host->ios.clock = 0;
 	host->ios.vdd = 0;
@@ -968,7 +986,13 @@ static void mmc_power_off(struct mmc_host *host)
 	host->ios.bus_width = MMC_BUS_WIDTH_1;
 	host->ios.timing = MMC_TIMING_LEGACY;
 	mmc_set_ios(host);
+#if 1//def CONFIG_LGE_MMC_WORKAROUND//LGE_CHANGES
+	printk("%s: mmc power down\n", mmc_hostname(host));
+#endif
 }
+#if 1//def CONFIG_LGE_MMC_WORKAROUND//LGE_CHANGES
+EXPORT_SYMBOL(mmc_power_off);
+#endif
 
 /*
  * Cleanup when the last reference to the bus operator is dropped.
@@ -1120,8 +1144,23 @@ void mmc_rescan(struct work_struct *work)
 	u32 ocr;
 	int err;
 	int extend_wakelock = 0;
+	int ret;
 
+/*
+	 * Add checking gpio pin status before initialization of bus.
+	 * If the GPIO pin status is changed, check gpio pin status again.
+	 * Should check until it's stable.
+	 * fred.cho@lge.com, 2010-09-27
+	 */
+	if (host->ops->get_status){
+		ret = host->ops->get_status(host);
+		if (ret == 1) {
+			mmc_schedule_delayed_work(&host->detect, HZ / 3);
+			return;
+		}
+	}
 	mmc_bus_get(host);
+
 
 	/* if there is a card registered, check whether it is still present */
 	if ((host->bus_ops != NULL) && host->bus_ops->detect &&
@@ -1361,8 +1400,21 @@ int mmc_suspend_host(struct mmc_host *host)
 	}
 	mmc_bus_put(host);
 
+#if 1//def CONFIG_LGE_MMC_WORKAROUND//LGE_CHANGES
+/*
+ * LGE_CHANGE
+ * Don't turn off the Power of SD card during Suspend
+ * fred.cho@lge.com, 2010-10-31
+ */
+	if (strcmp(mmc_hostname(host), "mmc0") != 0){
+		if (!err && !(host->pm_flags & MMC_PM_KEEP_POWER))
+			mmc_power_off(host);
+	} else
+		printk("sd card suspend...\n");
+#else
 	if (!err && !(host->pm_flags & MMC_PM_KEEP_POWER))
 		mmc_power_off(host);
+#endif
 
 	return err;
 }

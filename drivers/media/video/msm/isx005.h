@@ -23,7 +23,6 @@
 #include <mach/camera.h>
 
 extern struct isx005_reg isx005_regs;
-extern int mclk_rate;
 
 enum isx005_width {
 	BYTE_LEN,
@@ -39,11 +38,6 @@ struct isx005_register_address_value_pair {
 struct isx005_reg {
 	const struct isx005_register_address_value_pair *init_reg_settings;
 	uint16_t init_reg_settings_size;
-#if !defined(CONFIG_MACH_MSM7X27_THUNDERG) && \
-	!defined(CONFIG_MACH_MSM7X27_THUNDERA)
-	const struct isx005_register_address_value_pair *init_reg32_settings;
-	uint16_t init_reg32_settings_size;
-#endif
 	const struct isx005_register_address_value_pair *tuning_reg_settings;
 	uint16_t tuning_reg_settings_size;
 
@@ -54,6 +48,9 @@ struct isx005_reg {
 
 	const struct isx005_register_address_value_pair *af_normal_reg_settings;
 	uint16_t af_normal_reg_settings_size;
+	//LGE_CHANGE[byungsik.choi@lge.com]2010-09-09 add auto focus mode
+	const struct isx005_register_address_value_pair *af_auto_reg_settings;
+	uint16_t af_auto_reg_settings_size;
 	const struct isx005_register_address_value_pair *af_macro_reg_settings;
 	uint16_t af_macro_reg_settings_size;
 	const struct isx005_register_address_value_pair *af_manual_reg_settings;

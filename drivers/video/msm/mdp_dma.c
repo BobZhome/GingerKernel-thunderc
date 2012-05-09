@@ -157,6 +157,7 @@ static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 		}
 	}
 
+	dma2_cfg_reg |= DMA_DITHER_EN;
 #ifdef CONFIG_LGE_HIDDEN_RESET_PATCH
 	if (on_hidden_reset) {
 		src = (uint8 *) lge_get_fb_copy_phys_addr();
@@ -203,6 +204,7 @@ static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 	}
 
 	if (mddi_dest) {
+#if 0
 #ifdef CONFIG_FB_MSM_MDP22
 		MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x0194,
 			 (iBuf->dma_y << 16) | iBuf->dma_x);
@@ -232,6 +234,37 @@ static void mdp_dma2_update_lcd(struct msm_fb_data_type *mfd)
 #endif
 
 #endif
+#endif
+
+	//start shoogi.lee@lge.com LCD alternatives
+
+#ifdef CONFIG_FB_MSM_MDP22
+		MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x0194,
+			 (iBuf->dma_y << 16) | iBuf->dma_x);
+		MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x01a0, mddi_ld_param);
+		MDP_OUTP(MDP_CMD_DEBUG_ACCESS_BASE + 0x01a4,
+	/* Don't apply 6013 patch only when using Hitachi HVGA module. 2010-07-28. minjong.gong@lge.com */
+	if(g_mddi_lcd_probe == 0){
+			(MDDI_VDO_PACKET_DESC << 16) | mddi_vdo_packet_reg);
+			}
+	
+	else{
+			(mddi_pkt_desc << 16) | mddi_vdo_packet_reg);
+			}
+#else
+		MDP_OUTP(MDP_BASE + 0x90010, (iBuf->dma_y << 16) | iBuf->dma_x);
+		MDP_OUTP(MDP_BASE + 0x00090, mddi_ld_param);
+/* LGE_CHANGE [dojip.kim@lge.com] 2010-04-23, [LS670] fixed the pixel format */
+
+	if(g_mddi_lcd_probe == 1){
+		MDP_OUTP(MDP_BASE + 0x00094, (0x5565 /*MDDI_VDO_PACKET_DESC*/ << 16) | mddi_vdo_packet_reg);
+			 }
+	else{
+		MDP_OUTP(MDP_BASE + 0x00094,(MDDI_VDO_PACKET_DESC << 16) | mddi_vdo_packet_reg);
+	/* Don't apply 6013 patch only when using Hitachi HVGA module. 2010-07-28. minjong.gong@lge.com */
+	}
+#endif
+	//end shoogi.lee@lge.com LCD alternatives
 	} else {
 		/* setting EBI2 LCDC write window */
 		pdata->set_rect(iBuf->dma_x, iBuf->dma_y, iBuf->dma_w,

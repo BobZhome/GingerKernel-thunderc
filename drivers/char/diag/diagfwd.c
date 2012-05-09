@@ -637,14 +637,8 @@ void diag_process_hdlc(void *data, unsigned len)
         break;
       }
       else
-      	{
-// LGE_CHANGE_S [myeonggyu.son@lge.com] [2011.05.29] [gelato] to execute unnormal hdlc diag packet with attached trash data after 0x7E tail [START]
-// ex> [0x7E] [0xFA] [0x33] [0x00] [0x04] [0xB5] [0x78] [0x7E] [0x00] [0x00] [0x00] [0x00] [0x00] [0x00] [0x00] [0x00]
-      		if(nTempLen > 1)
-				break;
-// LGE_CHANGE_E [myeonggyu.son@lge.com] [2011.05.29] [gelato] to execute unnormal hdlc diag packet with attached trash data after 0x7E tail [END]
-			ret = 0; 
-      	}
+        ret = 0;
+      
     }while ( ret == 0 );
     
   	if (ret)

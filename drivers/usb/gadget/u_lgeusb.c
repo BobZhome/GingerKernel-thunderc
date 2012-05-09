@@ -184,7 +184,8 @@ static void do_switch_mode(int pid, int need_reset)
  */
 int lgeusb_detect_factory_cable(void)
 {
-	return get_factory_cable();
+	/* XXXTDM: prevents BUG() on plugging in usb cable */
+	return 0;
 }
 
 /* LGE_CHANGE
