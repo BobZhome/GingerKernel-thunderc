@@ -102,6 +102,8 @@ int ll_deinit(void);
 #ifdef CONFIG_BT_HCIUART_IBS
 int ibs_init(void);
 int ibs_deinit(void);
+#endif
+
 #ifdef CONFIG_BT_HCIUART_ATH3K
 int ath_init(void);
 int ath_deinit(void);
