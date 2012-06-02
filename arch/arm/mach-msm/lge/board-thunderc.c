@@ -392,7 +392,7 @@ struct android_usb_platform_data android_usb_pdata = {
 	.products = usb_products,
 	.num_functions = ARRAY_SIZE(usb_functions_lge_all),
 	.functions = usb_functions_lge_all,
-	.serial_number = "LGANDROIDLS670",
+	.serial_number = "LGANDROID__670",
 };
 
 #endif /* CONFIG_USB_ANDROID */
@@ -521,7 +521,7 @@ static void __init msm7x2x_map_io(void)
 
 /* LGE_CHANGE [dojip.kim@lge.com] 2010-06-02 [LS670] */
 #ifdef CONFIG_MACH_MSM7X27_THUNDERC_SPRINT
-MACHINE_START(MSM7X27_THUNDERC, "THUNDER Sprint board (LGE LS670)")
+MACHINE_START(MSM7X27_THUNDERC, "THUNDERC CDMA board (LGE Optimus)")
 #else
 MACHINE_START(MSM7X27_THUNDERC, "THUNDER Verizone board (LGE VS660)")
 #endif
