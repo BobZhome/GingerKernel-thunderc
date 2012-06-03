@@ -76,8 +76,8 @@ static const unsigned short keypad_keymap_thunder[9] = {
 	[KEYMAP_INDEX(0, 0)] = KEY_MENU,
 	[KEYMAP_INDEX(0, 1)] = KEY_HOME,
 #else
-	[KEYMAP_INDEX(0, 0)] = KEY_HOME,
-	[KEYMAP_INDEX(0, 1)] = KEY_MENU,
+	[KEYMAP_INDEX(0, 0)] = KEY_MENU,
+	[KEYMAP_INDEX(0, 1)] = KEY_HOME,
 #endif
 	[KEYMAP_INDEX(0, 2)] = KEY_VOLUMEUP,
 	[KEYMAP_INDEX(1, 0)] = KEY_SEARCH,
