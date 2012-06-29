@@ -1,8 +1,8 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 35
-EXTRAVERSION = .7
-NAME = Yokohama
+EXTRAVERSION = .10
+NAME = BobZics_v2.9
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -190,7 +190,7 @@ SUBARCH := arm
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 export KBUILD_BUILDHOST := $(SUBARCH)
 ARCH		?= $(SUBARCH)
-CROSS_COMPILE	?= /home/bobzhome/android/android-toolchain-eabi/bin/arm-eabi-
+CROSS_COMPILE	?= /home/bobzhome/android/system/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
 CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h

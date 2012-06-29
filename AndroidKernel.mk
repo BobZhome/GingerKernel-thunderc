@@ -3,7 +3,7 @@
 ifeq ($(TARGET_PREBUILT_KERNEL),)
 
 ARCH ?= arm
-CROSS_COMPILE ?= arm-eabi-
+CROSS_COMPILE ?= /home/bobzhome/android/system/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
 
 KERNEL_OUT := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ
 KERNEL_CONFIG := $(KERNEL_OUT)/.config
