@@ -52,6 +52,7 @@
 */
 
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/sysdev.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
@@ -88,8 +89,12 @@
 #endif
 
 static struct workqueue_struct *g_detection_work_queue;
+
 static void detection_work(struct work_struct *work);
 static DECLARE_WORK(g_detection_work, detection_work);
+
+static void headset35mm_detection_work(struct work_struct *work);
+static DECLARE_WORK(g_extend_detection_work, headset35mm_detection_work);
 
 struct h2w_info {
 	struct switch_dev sdev;
@@ -101,12 +106,16 @@ struct h2w_info {
 
 	unsigned int irq;
 	unsigned int irq_btn;
+	unsigned int irq_btn_35mm;
 
 	int cable_in1;
 	int cable_in2;
 	int h2w_clk;
 	int h2w_data;
 	int debug_uart;
+	int headset_mic_35mm;
+	int ext_mic_sel;
+	int wfm_ant_sw;
 
 	void (*config_cpld) (int);
 	void (*init_cpld) (void);
@@ -119,12 +128,18 @@ struct h2w_info {
 	int (*get_clk)(void);
 
 	int htc_headset_flag;
+	int headset_35mm_flag;
+	int btn_11pin_35mm_flag;
+	int headset_35mm_insert;
 
 	struct hrtimer timer;
 	ktime_t debounce_time;
 
 	struct hrtimer btn_timer;
 	ktime_t btn_debounce_time;
+
+	struct hrtimer btn35mm_timer;
+	ktime_t btn35mm_debounce_time;
 
 	H2W_INFO h2w_info;
 	H2W_SPEED speed;
@@ -145,7 +160,7 @@ static ssize_t h2w_print_name(struct switch_dev *sdev, char *buf)
 
 static void button_pressed(void)
 {
-	H2W_DBG("button_pressed \n");
+	printk(KERN_INFO "[H2W] button_pressed\n");
 	atomic_set(&hi->btn_state, 1);
 	input_report_key(hi->input, KEY_MEDIA, 1);
 	input_sync(hi->input);
@@ -153,7 +168,7 @@ static void button_pressed(void)
 
 static void button_released(void)
 {
-	H2W_DBG("button_released \n");
+	printk(KERN_INFO "[H2W] button_released\n");
 	atomic_set(&hi->btn_state, 0);
 	input_report_key(hi->input, KEY_MEDIA, 0);
 	input_sync(hi->input);
@@ -185,14 +200,6 @@ static inline void h2w_end_command(void)
 	set_irq_type(hi->irq_btn, IRQF_TRIGGER_RISING);
 }
 
-/*
- * One bit write data
- *                     ________
- *       SCLK O ______|        |______O(L)
- *
- *
- *	     SDAT I <XXXXXXXXXXXXXXXXXXXX>
- */
 static inline void one_clock_write(unsigned short flag)
 {
 	if (flag)
@@ -206,15 +213,6 @@ static inline void one_clock_write(unsigned short flag)
 	hi->set_clk(0);
 }
 
-/*
- * One bit write data R/W bit
- *                   ________
- *       SCLK ______|        |______O(L)
- *            1---->         1----->
- *                  2-------> ______
- *	 SDAT <XXXXXXXXXXXXXX>      I
- *                         O(H/L)
- */
 static inline void one_clock_write_RWbit(unsigned short flag)
 {
 	if (flag)
@@ -230,17 +228,6 @@ static inline void one_clock_write_RWbit(unsigned short flag)
 	udelay(hi->speed);
 }
 
-/*
- * H2W Reset
- *                       ___________
- *       SCLK O(L)______|           |___O(L)
- *                1---->
- *                      4-->1-->1-->1us-->
- *                          ____
- *       SDAT O(L)________ |    |_______O(L)
- *
- * H2w reset command needs to be issued before every access
- */
 static inline void h2w_reset(void)
 {
 	/* Set H2W_DAT as output low */
@@ -258,15 +245,6 @@ static inline void h2w_reset(void)
 	udelay(hi->speed);
 }
 
-/*
- * H2W Start
- *                       ___________
- *       SCLK O(L)______|           |___O(L)
- *                1---->
- *                      2----------->1-->
- *
- *       SDAT O(L)______________________O(L)
- */
 static inline void h2w_start(void)
 {
 	udelay(hi->speed);
@@ -276,15 +254,6 @@ static inline void h2w_start(void)
 	udelay(hi->speed);
 }
 
-/*
- * H2W Ack
- *                  __________
- *       SCLK _____|          |_______O(L)
- *            1---->	      1------>
- *		           2--------->
- *            ________________________
- *	 SDAT  become Input mode here I
- */
 static inline int h2w_ack(void)
 {
 	int retry_times = 0;
@@ -309,14 +278,6 @@ ack_resend:
 	return 0;
 }
 
-/*
- * One bit read data
- *                   ________
- *       SCLK ______|        |______O(L)
- *            2---->         2----->
- *                  2------->
- *	 SDAT <XXXXXXXXXXXXXXXXXXXX>I
- */
 static unsigned char h2w_readc(void)
 {
 	unsigned char h2w_read_data = 0x0;
@@ -669,6 +630,17 @@ static void remove_headset(void)
 
 		if (atomic_read(&hi->btn_state))
 			button_released();
+		printk(KERN_INFO "remove htc headset\n");
+		break;
+	case NORMAL_HEARPHONE:
+		if (hi->btn_11pin_35mm_flag) {
+			disable_irq(hi->irq_btn_35mm);
+			turn_mic_bias_on(0);
+			hi->btn_11pin_35mm_flag = 0;
+			if (atomic_read(&hi->btn_state))
+				button_released();
+		}
+		printk(KERN_INFO "remove 11pin 3.5mm headset\n");
 		break;
 	case H2W_DEVICE:
 		h2w_dev_power_on(0);
@@ -678,6 +650,7 @@ static void remove_headset(void)
 		hi->btn_debounce_time = ktime_set(0, 10000000);
 		hi->set_clk_dir(0);
 		hi->set_dat_dir(0);
+		printk(KERN_INFO "remove h2w device\n");
 		break;
 	}
 
@@ -713,7 +686,44 @@ static void insert_headset(int type)
 		local_irq_restore(irq_flags);
 		hi->debounce_time = ktime_set(0, 200000000); /* 20 ms */
 		break;
+	case NORMAL_HEARPHONE:
+		if (hi->headset_mic_35mm) {
+			/* support 3.5mm earphone with mic */
+			printk(KERN_INFO "11pin_3.5mm_headset plug in\n");
+			/* Turn On Mic Bias */
+			turn_mic_bias_on(1);
+			/* Wait pin be stable */
+			msleep(200);
+			/* Detect headset with or without microphone */
+			if (gpio_get_value(hi->headset_mic_35mm)) {
+				/* without microphone */
+				turn_mic_bias_on(0);
+				state |= BIT_HEADSET_NO_MIC;
+				printk(KERN_INFO
+				       "11pin_3.5mm without microphone\n");
+			} else { /* with microphone */
+				state |= BIT_HEADSET;
+				/* Enable button irq */
+				if (!hi->btn_11pin_35mm_flag) {
+					set_irq_type(hi->irq_btn_35mm,
+						     IRQF_TRIGGER_HIGH);
+					enable_irq(hi->irq_btn_35mm);
+					hi->btn_11pin_35mm_flag = 1;
+				}
+				printk(KERN_INFO
+				       "11pin_3.5mm with microphone\n");
+			}
+		} else /* not support 3.5mm earphone with mic */
+			state |= BIT_HEADSET_NO_MIC;
+		hi->debounce_time = ktime_set(0, 500000000);  /* 500 ms */
+		break;
 	case H2W_DEVICE:
+		printk(KERN_INFO "insert_headset H2W_DEVICE\n");
+		if (!hi->set_dat) {
+			printk(KERN_INFO "Don't support H2W_DEVICE\n");
+			hi->htc_headset_flag = 0;
+			return;
+		}
 		if (h2w_dev_detect() < 0) {
 			printk(KERN_INFO "H2W_DEVICE -- Non detect\n");
 			remove_headset();
@@ -728,11 +738,12 @@ static void insert_headset(int type)
 		}
 		break;
 	case H2W_USB_CRADLE:
+		printk(KERN_INFO "insert_headset USB_CRADLE\n");
 		state |= BIT_HEADSET_NO_MIC;
 		break;
 	case H2W_UART_DEBUG:
-		hi->config_cpld(hi->debug_uart);
 		printk(KERN_INFO "switch to H2W_UART_DEBUG\n");
+		hi->config_cpld(hi->debug_uart);
 	default:
 		return;
 	}
@@ -806,7 +817,7 @@ static int is_accessary_pluged_in(void)
 	gpio_direction_input(hi->cable_in1);
 	gpio_direction_input(hi->cable_in2);
 
-	H2W_DBG("(%d,%d) (%d,%d) (%d,%d)\n",
+	H2WI("(%d,%d) (%d,%d) (%d,%d)",
 		clk1, dat1, clk2, dat2, clk3, dat3);
 
 	if ((clk1 == 0) && (dat1 == 1) &&
@@ -871,25 +882,47 @@ static void detection_work(struct work_struct *work)
 	insert_headset(type);
 }
 
+void headset_button_event(int is_press)
+{
+	if (!is_press) {
+		if (hi->ignore_btn)
+			hi->ignore_btn = 0;
+		else if (atomic_read(&hi->btn_state))
+			button_released();
+	} else {
+		if (!hi->ignore_btn && !atomic_read(&hi->btn_state))
+			button_pressed();
+	}
+}
+
+static enum hrtimer_restart button_35mm_event_timer_func(struct hrtimer *data)
+{
+	if (gpio_get_value(hi->headset_mic_35mm)) {
+		headset_button_event(1);
+		/* 10 ms */
+		hi->btn35mm_debounce_time = ktime_set(0, 10000000);
+	} else {
+		headset_button_event(0);
+		/* 100 ms */
+		hi->btn35mm_debounce_time = ktime_set(0, 100000000);
+	}
+
+	return HRTIMER_NORESTART;
+}
+
 static enum hrtimer_restart button_event_timer_func(struct hrtimer *data)
 {
 	int key, press, keyname, h2w_key = 1;
 
 	H2W_DBG("");
 
-	if (switch_get_state(&hi->sdev) == H2W_HTC_HEADSET) {
+	if (switch_get_state(&hi->sdev) & BIT_HEADSET) {
 		switch (hi->htc_headset_flag) {
 		case H2W_HTC_HEADSET:
-			if (gpio_get_value(hi->cable_in2)) {
-				if (hi->ignore_btn)
-					hi->ignore_btn = 0;
-				else if (atomic_read(&hi->btn_state))
-					button_released();
-			} else {
-				if (!hi->ignore_btn &&
-				    !atomic_read(&hi->btn_state))
-					button_pressed();
-			}
+			if (!gpio_get_value(hi->cable_in2))
+				headset_button_event(1); /* press */
+			else
+				headset_button_event(0);
 			break;
 		case H2W_DEVICE:
 			if ((hi->get_dat() == 1) && (hi->get_clk() == 1)) {
@@ -983,7 +1016,7 @@ static irqreturn_t detect_irq_handler(int irq, void *dev_id)
 		value2, (10-retry_limit), switch_get_state(&hi->sdev));
 
 	if ((switch_get_state(&hi->sdev) == H2W_NO_DEVICE) ^ value2) {
-		if (switch_get_state(&hi->sdev) == H2W_HTC_HEADSET)
+		if (switch_get_state(&hi->sdev) & BIT_HEADSET)
 			hi->ignore_btn = 1;
 		/* Do the rest of the work in timer context */
 		hrtimer_start(&hi->timer, hi->debounce_time, HRTIMER_MODE_REL);
@@ -1012,6 +1045,103 @@ static irqreturn_t button_irq_handler(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
+
+static irqreturn_t button_35mm_irq_handler(int irq, void *dev_id)
+{
+	int value1, value2;
+	int retry_limit = 10;
+
+	H2W_DBG("");
+	do {
+		value1 = gpio_get_value(hi->headset_mic_35mm);
+		set_irq_type(hi->irq_btn_35mm, value1 ?
+				IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH);
+		value2 = gpio_get_value(hi->headset_mic_35mm);
+	} while (value1 != value2 && retry_limit-- > 0);
+
+	H2W_DBG("value2 = %d (%d retries)", value2, (10-retry_limit));
+
+	hrtimer_start(&hi->btn35mm_timer,
+		      hi->btn35mm_debounce_time,
+		      HRTIMER_MODE_REL);
+
+	return IRQ_HANDLED;
+
+}
+
+static void headset35mm_detection_work(struct work_struct *work)
+{
+	int state;
+
+	if (hi->htc_headset_flag && hi->headset_35mm_insert)
+		remove_headset();
+	mutex_lock(&hi->mutex_lock);
+	state = switch_get_state(&hi->sdev);
+	state &= ~(BIT_HEADSET | BIT_HEADSET_NO_MIC);
+	if (hi->headset_35mm_insert) {
+		printk(KERN_INFO "3.5mm_headset plug in\n");
+		/* ext mic switch to 3.5mm */
+		if (hi->ext_mic_sel)
+			gpio_direction_output(hi->ext_mic_sel, 0);
+		/* fm ant switch to 3.5 mm */
+		if (hi->wfm_ant_sw)
+			gpio_direction_output(hi->wfm_ant_sw, 0);
+		/* Turn On Mic Bias */
+		turn_mic_bias_on(1);
+		/* Wait for pin stable */
+		msleep(200);
+		/* Detect headset with or without microphone */
+		if (gpio_get_value(hi->headset_mic_35mm)) {
+			/* without microphone */
+			turn_mic_bias_on(0);
+			state |= BIT_HEADSET_NO_MIC;
+			hi->headset_35mm_flag = 1;
+			printk(KERN_INFO
+			       "3.5mm_headset without microphone\n");
+		} else { /* with microphone */
+			hi->ignore_btn = gpio_get_value(hi->headset_mic_35mm);
+			if (!hi->headset_35mm_flag) {
+				set_irq_type(hi->irq_btn_35mm,
+					     IRQF_TRIGGER_HIGH);
+				enable_irq(hi->irq_btn_35mm);
+			}
+			state |= BIT_HEADSET;
+			hi->headset_35mm_flag = 2;
+			printk(KERN_INFO
+			       "3.5mm_headset with microphone\n");
+		}
+		switch_set_state(&hi->sdev, state);
+		mutex_unlock(&hi->mutex_lock);
+	} else {
+		printk(KERN_INFO "3.5mm_headset plug out\n");
+		if (hi->headset_35mm_flag == 2) {
+			disable_irq(hi->irq_btn_35mm);
+			turn_mic_bias_on(0);
+		}
+		if (atomic_read(&hi->btn_state))
+			button_released();
+		hi->headset_35mm_flag = 0;
+		/* ext mic switch to 11 pin */
+		if (hi->ext_mic_sel)
+			gpio_direction_output(hi->ext_mic_sel, 1);
+		/* fm ant switch to 11 pin */
+		if (hi->wfm_ant_sw)
+			gpio_direction_output(hi->wfm_ant_sw, 1);
+		switch_set_state(&hi->sdev, state);
+		mutex_unlock(&hi->mutex_lock);
+		if (hi->htc_headset_flag)
+			insert_headset(hi->htc_headset_flag);
+	}
+}
+
+void extended_headset(int insert)
+{
+	if (hi->headset_mic_35mm) {
+		hi->headset_35mm_insert = insert;
+		queue_work(g_detection_work_queue, &g_extend_detection_work);
+	}
+}
+EXPORT_SYMBOL(extended_headset);
 
 #if defined(CONFIG_DEBUG_FS)
 static int h2w_debug_set(void *data, u64 val)
@@ -1059,13 +1189,18 @@ static int h2w_probe(struct platform_device *pdev)
 
 	hi->debounce_time = ktime_set(0, 100000000);  /* 100 ms */
 	hi->btn_debounce_time = ktime_set(0, 10000000); /* 10 ms */
+	hi->btn35mm_debounce_time = ktime_set(0, 50000000);  /* 50 ms */
 
 	hi->htc_headset_flag = 0;
+	hi->btn_11pin_35mm_flag = 0;
 	hi->cable_in1 = pdata->cable_in1;
 	hi->cable_in2 = pdata->cable_in2;
 	hi->h2w_clk = pdata->h2w_clk;
 	hi->h2w_data = pdata->h2w_data;
 	hi->debug_uart = pdata->debug_uart;
+	hi->headset_mic_35mm = pdata->headset_mic_35mm;
+	hi->ext_mic_sel = pdata->ext_mic_sel;
+	hi->wfm_ant_sw = pdata->wfm_ant_sw;
 	hi->config_cpld = pdata->config_cpld;
 	hi->init_cpld = pdata->init_cpld;
 	hi->set_dat = pdata->set_dat;
@@ -1092,6 +1227,28 @@ static int h2w_probe(struct platform_device *pdev)
 	if (g_detection_work_queue == NULL) {
 		ret = -ENOMEM;
 		goto err_create_work_queue;
+	}
+
+	if (hi->headset_mic_35mm) {
+		ret = gpio_request(hi->headset_mic_35mm, "3.5mm_mic_detect");
+		if (ret < 0)
+			goto err_request_35mm_mic_detect_gpio;
+
+		ret = gpio_direction_input(hi->headset_mic_35mm);
+		if (ret < 0)
+			goto err_set_35mm_mic_detect_gpio;
+
+		hi->irq_btn_35mm = gpio_to_irq(hi->headset_mic_35mm);
+		if (hi->irq_btn_35mm < 0) {
+			ret = hi->irq_btn_35mm;
+			goto err_request_btn_35mm_irq;
+		}
+		set_irq_flags(hi->irq_btn_35mm, IRQF_VALID | IRQF_NOAUTOEN);
+		ret = request_irq(hi->irq_btn_35mm,
+				  button_35mm_irq_handler,
+				  IRQF_TRIGGER_HIGH, "35mm_button", NULL);
+		if (ret < 0)
+			goto err_request_btn_35mm_irq;
 	}
 
 	ret = gpio_request(hi->cable_in1, "h2w_detect");
@@ -1129,6 +1286,8 @@ static int h2w_probe(struct platform_device *pdev)
 	hi->timer.function = detect_event_timer_func;
 	hrtimer_init(&hi->btn_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	hi->btn_timer.function = button_event_timer_func;
+	hrtimer_init(&hi->btn35mm_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hi->btn35mm_timer.function = button_35mm_event_timer_func;
 
 	ret = request_irq(hi->irq, detect_irq_handler,
 			  IRQF_TRIGGER_LOW, "h2w_detect", NULL);
@@ -1150,7 +1309,12 @@ static int h2w_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_request_input_dev;
 
-
+	/* ext mic switch to 11 pin*/
+	if (hi->ext_mic_sel)
+		gpio_direction_output(hi->ext_mic_sel, 1);
+	/* fm ant switch to 11 pin */
+	if (hi->wfm_ant_sw)
+		gpio_direction_output(hi->wfm_ant_sw, 1);
 
 	hi->input = input_allocate_device();
 	if (!hi->input) {
@@ -1192,6 +1356,13 @@ err_set_detect_gpio:
 err_request_button_gpio:
 	gpio_free(hi->cable_in1);
 err_request_detect_gpio:
+	if (hi->headset_mic_35mm)
+		free_irq(hi->irq_btn_35mm, 0);
+err_request_btn_35mm_irq:
+err_set_35mm_mic_detect_gpio:
+	if (hi->headset_mic_35mm)
+		gpio_free(hi->headset_mic_35mm);
+err_request_35mm_mic_detect_gpio:
 	destroy_workqueue(g_detection_work_queue);
 err_create_work_queue:
 	switch_dev_unregister(&hi->sdev);
@@ -1211,6 +1382,10 @@ static int h2w_remove(struct platform_device *pdev)
 	gpio_free(hi->cable_in1);
 	free_irq(hi->irq_btn, 0);
 	free_irq(hi->irq, 0);
+	if (hi->headset_mic_35mm) {
+		gpio_free(hi->headset_mic_35mm);
+		free_irq(hi->irq_btn_35mm, 0);
+	}
 	destroy_workqueue(g_detection_work_queue);
 	switch_dev_unregister(&hi->sdev);
 
@@ -1244,3 +1419,4 @@ module_exit(h2w_exit);
 MODULE_AUTHOR("Laurence Chen <Laurence_Chen@htc.com>");
 MODULE_DESCRIPTION("HTC 2 Wire detection driver");
 MODULE_LICENSE("GPL");
+
