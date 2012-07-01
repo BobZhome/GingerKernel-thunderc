@@ -1613,8 +1613,6 @@ static void msmsdcc_late_resume(struct early_suspend *h)
 	}
 /* LGE_CHANGE_S [yoohoo@lge.com] 2009-10-24, don't do this to WLAN */
 	}
-	printk(KERN_ERR "msmsdcc_late_resume : END \n");
-/* LGE_CHANGE_S [jisung.yang@lge.com] 2010-04-24, don't do this to WLAN */
 };
 #endif
 
