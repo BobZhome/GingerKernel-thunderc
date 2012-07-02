@@ -2566,17 +2566,6 @@ static int msm_release_pic(struct inode *node, struct file *filep)
 	return rc;
 }
 
-static int msm_unblock_poll_pic(struct msm_sync *sync)
-{
-	unsigned long flags;
-	CDBG("%s\n", __func__);
-	spin_lock_irqsave(&sync->pict_q.lock, flags);
-	sync->unblock_poll_pic_frame = 1;
-	wake_up(&sync->pict_q.wait);
-	spin_unlock_irqrestore(&sync->pict_q.lock, flags);
-	return 0;
-}
-
 static int msm_unblock_poll_frame(struct msm_sync *sync)
 {
 	unsigned long flags;
