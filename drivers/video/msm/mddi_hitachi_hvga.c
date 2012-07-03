@@ -32,6 +32,7 @@
 #define INTFLG		LCD_CONTROL_BLOCK_BASE|(0x18)
 #define INTMSK		LCD_CONTROL_BLOCK_BASE|(0x1c)
 #define VPOS		LCD_CONTROL_BLOCK_BASE|(0xc0)
+
 #if 0
 static uint32 mddi_hitachi_curr_vpos;
 static boolean mddi_hitachi_monitor_refresh_value = FALSE;
@@ -145,7 +146,9 @@ static struct display_table mddi_hitachi_img_end[] = {
 	{0x00, 0, {}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
-
+#endif
+ 
+#if 0
 static struct display_table mddi_hitachi_display_off[] = {
 	// Display off sequence
 	{0x28, 4, {0x00, 0x00, 0x00, 0x00}},
@@ -154,6 +157,10 @@ static struct display_table mddi_hitachi_display_off[] = {
 	{REGFLAG_DELAY, 130, {}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
+//LGE_S mahesh.kamarnat@lge.com -- LCD Patch [endif line removed]
+
+//LGE_S mahesh.kamarnat@lge.com -- LCD Patch
+
 static struct display_table mddi_hitachi_sleep_mode_on_data[] = {
 	// Display off sequence
 	{0x28, 4, {0x00, 0x00, 0x00, 0x00}},
@@ -164,7 +171,10 @@ static struct display_table mddi_hitachi_sleep_mode_on_data[] = {
 	{REGFLAG_DELAY, 40, {}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
+//LGE_S mahesh.kamarnat@lge.com -- LCD Patch
 #endif
+//LGE_E mahesh.kamarnat@lge.com -- LCD Patch
+
 static struct display_table mddi_hitachi_initialize_1st[] = {
 
 	// Power ON Sequence 
@@ -243,21 +253,20 @@ static struct display_table mddi_hitachi_initialize_3rd_vs660[] = {
 			    0x3f, 0x66, 0x02, 0x3f, 0x66, 0x02, 0x00, 0x00}},
 
 	// VCMCTL 
-	// [Apply 4th Table] Change 6th parameter. From 0x00 to 0x04. 2010-08-03. minjong.gong@lge.com
-	{0xf5, 12, {0x00, 0x59, 0x45, 0x00, 0x00, 0x04, 0x00, 0x00,
+	// Revert 6th parameter. From 0x04 to 0x00. 2010-09-02. minjong.gong@lge
+	{0xf5, 12, {0x00, 0x59, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00,
 			    0x00, 0x00, 0x59, 0x45}},
 	{REGFLAG_DELAY, 10, {}},
 
 	// MANPWRSEQ 
-	// [Apply 4th Table] Change 1st parameter. From 0x01 to 0x03. 2010-08-03. minjong.gong@lge.com
-	{0xf3, 8,  {0x03, 0x6e, 0x15, 0x07, 0x03, 0x00, 0x00, 0x00}},
+	// Revert 1st parameter. From 0x03 to 0x01. 2010-09-02. minjong.gong@lge
+	{0xf3, 8,  {0x01, 0x6e, 0x15, 0x07, 0x03, 0x00, 0x00, 0x00}},
 	
-	// DISCTL 
-	// Change 2nd and 15th parameters. From 0x4d to 0x54.
-	// When useing 0x4D (65Hz), it causes decreasing the touch sensitivity.
-	// 2010-08-21. minjong.gong@lge.com
-	{0xf2, 20, {0x3b, 0x54, 0x0f, 0x08, 0x08, 0x08, 0x08, 0x00,
-			    0x08, 0x08, 0x00, 0x04, 0x00, 0x00, 0x54, 0x08,
+	// Revert 2nd and 15th parameters. From 0x54 to 0x4d.
+	// Revert 6th, 7th, 9th and 10th parameters. From 0x08 to ox00.
+	// 2010-09-02. minjong.gong@lge.com
+	{0xf2, 20, {0x3b, 0x4d, 0x0f, 0x08, 0x08, 0x00, 0x00, 0x00,
+			    0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x4d, 0x08,
 			    0x08, 0x08, 0x08, 0x00}},
 
 	{0xf6, 12, {0x04, 0x00, 0x08, 0x03, 0x01, 0x00, 0x01, 0x00,
@@ -469,12 +478,15 @@ void hitachi_display_table(struct display_table *table, unsigned int count)
                 break;
 				
             default:
-                mddi_host_register_cmds_write8(reg, table[i].count, table[i].val_list, 1, 0, 0);
+//LGE_S mahesh.kamarnat@lge.com -- LCD Patch
+                mddi_host_register_cmds_write8(reg, table[i].count, table[i].val_list, 0, 0, 0);
+//LGE_E mahesh.kamarnat@lge.com -- LCD Patch
 				//EPRINTK("%s: reg : %x, val : %x.\n", __func__, reg, table[i].val_list[0]);
        	}
     }
 	
 }
+
 #if 0
 static void compare_table(struct display_table *table, unsigned int count)
 {
@@ -553,6 +565,7 @@ static void mddi_hitachi_lcd_vsync_detected(boolean detected)
 	struct timeval now;
 	uint32 elapsed_us;
 	uint32 num_vsyncs;
+#endif
 
 /* LGE_CHANGE
   * Close below code to fix screen shaking problem
@@ -560,7 +573,7 @@ static void mddi_hitachi_lcd_vsync_detected(boolean detected)
   */
 //	mddi_queue_register_write_int(0x2C, 0);
 
-
+#if 0 /* Block temporaly till vsync implement */
 	if ((detected) || (mddi_hitachi_vsync_attempts > 5)) {
 		if ((detected) || (mddi_hitachi_monitor_refresh_value)) {
 			/* if (start_time != 0) */
