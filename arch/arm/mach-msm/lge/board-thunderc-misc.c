@@ -373,7 +373,7 @@ static struct android_vibrator_platform_data thunderc_vibrator_data = {
 	.ic_enable_set = thunderc_vibrator_ic_enable_set,
 	// LGE_CHANGE [dojip.kim@lge.com] 2010-08-30, 100->115 (by HW request)
 	// LGE_CHANGE [dojip.kim@lge.com] 2010-09-03, 110
-	.amp_value = 110,
+	.amp_value = 115,
 };
 
 static struct platform_device android_vibrator_device = {
