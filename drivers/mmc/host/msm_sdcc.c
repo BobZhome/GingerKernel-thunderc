@@ -2122,7 +2122,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 		 */
 		pm_runtime_get_noresume(dev);
 /* LGE_CHANGE_S [jisung.yang@lge.com] 2011-2-15, <Support Host Wakeup> */
-#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
+#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && !(defined(CONFIG_BCM4325) || defined(CONFIG_BCM4325_MODULE))
 		host->sdcc_suspending = 0; //Broadcomm suggesstion to reduce power consumption [panchaxari.t@lge.com]
 		if (host->plat->status_irq == gpio_to_irq(CONFIG_BCM4325_GPIO_WL_RESET)) {
 			if(dhdpm.suspend != NULL){  
@@ -2205,7 +2205,7 @@ msmsdcc_runtime_resume(struct device *dev)
 		spin_unlock_irqrestore(&host->lock, flags);
 
 /* LGE_CHANGE_S [jisung.yang@lge.com] 2011-2-15, <Support Host Wakeup> */
-#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP)
+#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && !(defined(CONFIG_BCM4325) || defined(CONFIG_BCM4325_MODULE))
 		if (host->plat->status_irq == gpio_to_irq(CONFIG_BCM4325_GPIO_WL_RESET)) {
 			if(dhdpm.resume != NULL) {
 				dhdpm.resume(NULL);
@@ -2249,6 +2249,20 @@ static int msmsdcc_pm_suspend(struct device *dev)
 	if (host->plat->status_irq)
 		disable_irq(host->plat->status_irq);
 
+/* LGE_CHANGE_S [jisung.yang@lge.com] 2011-3-4, <Support Host Wakeup> */
+#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && (defined(CONFIG_BCM4325) || defined(CONFIG_BCM4325_MODULE))
+                if (host->plat->status_irq == gpio_to_irq(WLAN_RESET_GPIO)) {
+                        if(dhdpm.suspend != NULL){
+                                //rc = dhdpm.suspend(NULL);
+                                printk("%s: enable bcm43xx host wakeup\n", __func__);
+                                dhdpm.suspend(NULL);
+                        } else {
+                                printk("[WiFi] %s: dhdpm.suspend=NULL \n",__FUNCTION__);
+                        }
+                }
+#endif
+/* LGE_CHANGE_E [jisung.yang@lge.com] 2011-3-4, <Support Host Wakeup> */
+
 	if (!pm_runtime_suspended(dev))
 		rc = msmsdcc_runtime_suspend(dev);
 
@@ -2262,6 +2276,20 @@ static int msmsdcc_pm_resume(struct device *dev)
 	int rc = 0;
 
 	rc = msmsdcc_runtime_resume(dev);
+
+/* LGE_CHANGE_S [jisung.yang@lge.com] 2011-3-4, <Support Host Wakeup> */
+#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && (defined(CONFIG_BCM4325) || defined(CONFIG_BCM4325_MODULE))
+                        if (host->plat->status_irq == gpio_to_irq(WLAN_RESET_GPIO)) {
+                                if(dhdpm.resume != NULL) {
+                                        printk("%s: disable bcm43xx host wakeup\n", __func__);
+                                        dhdpm.resume(NULL);
+                                } else {
+                                        printk("[WiFi] %s: dhdpm.suspend=NULL \n",__FUNCTION__);
+                                }
+                        }
+#endif
+/* LGE_CHANGE_E [jisung.yang@lge.com] 2011-3-4, <Support Host Wakeup> */
+
 	if (host->plat->status_irq)
 		enable_irq(host->plat->status_irq);
 
