@@ -501,6 +501,80 @@ int aat28xx_ldo_set_level(struct device *dev, unsigned num, unsigned vol)
 }
 EXPORT_SYMBOL(aat28xx_ldo_set_level);
 
+static void aat28xx_power_internal(struct aat28xx_driver_data *drvdata, int on)
+{
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
+	return;
+#endif
+	if(!drvdata || !drvdata->gpio)
+		return;
+
+	if(drvdata->refcnt == 0 && !on) {
+		printk(KERN_ERR "%s: already in power off!!\n",  __func__);
+		return;
+	}
+
+	printk(KERN_INFO "%s: on = %d, refcnt = %d\n",
+		   __func__, on, drvdata->refcnt);
+
+	mutex_lock(&drvdata->power_lock);
+	if(on) {
+		if(drvdata->refcnt == 0) {
+			gpio_set_value(drvdata->gpio, 0);
+			mdelay(20);
+			gpio_set_value(drvdata->gpio, 1);
+			mdelay(2);
+		}
+		drvdata->refcnt++;
+	} else {
+		drvdata->refcnt--;
+		if(drvdata->refcnt ==0) {
+			gpio_set_value(drvdata->gpio, 0);
+			mdelay(20);
+		}
+	}
+	mutex_unlock(&drvdata->power_lock);
+}
+
+void aat28xx_power(struct device *dev, int on)
+{
+	struct i2c_adapter *adap;
+	struct i2c_client *client;
+
+	if((adap = dev_get_drvdata(dev)) && (client=i2c_get_adapdata(adap)))
+		aat28xx_power_internal(i2c_get_clientdata(client), on);
+}
+EXPORT_SYMBOL(aat28xx_power);
+
+static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx_ctrl_tbl *ptbl)
+{
+	unsigned int i = 0;
+	unsigned long delay = 0;
+
+	if (ptbl == NULL) {
+		eprintk("input ptr is null\n");
+		return -EIO;
+	}
+
+	for( ;;) {
+		if (ptbl->reg == 0xFF) {
+			if (ptbl->val != 0xFE) {
+				delay = (unsigned long)ptbl->val;
+				udelay(delay);
+			}
+			else
+				break;
+		}	
+		else {
+			if (aat28xx_write(drvdata->client, ptbl->reg, ptbl->val) != 0)
+				dprintk("i2c failed addr:%d, value:%d\n", ptbl->reg, ptbl->val);
+		}
+		ptbl++;
+		i++;
+	}
+	return 0;
+}
+
 static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx_ctrl_tbl *ptbl)
 {
 	unsigned int i = 0;
