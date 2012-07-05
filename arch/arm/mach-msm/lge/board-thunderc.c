@@ -151,18 +151,20 @@ char *usb_functions_lge_all[] = {
 #ifdef CONFIG_USB_F_SERIAL
 	"nmea",
 #endif
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+	"usb_cdrom_storage",
+	"charge_only",
+#endif
 	"usb_mass_storage",
 	"adb",
 };
 
 
 /* LG Android Platform */
-/*LGSI_CHANGE_S <pranav.s@lge.com> PIF cable detection change*/
-#if 0
 char *usb_functions_lge_android_plat[] = {
 	"acm", "diag", "nmea", "usb_mass_storage",
 };
-#endif
+
 /*LGSI_CHANGE_E <pranav.s@lge.com> PIF cable detection change*/
 char *usb_functions_lge_android_plat_adb[] = {
 	"acm", "diag", "nmea", "usb_mass_storage", "adb",
@@ -211,16 +213,31 @@ char *usb_functions_lge_mass_stroage_only[] = {
 	"usb_mass_storage",
 };
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+/* CDROM storage only mode(Autorun default mode) */
+char *usb_functions_lge_cdrom_storage_only[] = {
+	"usb_cdrom_storage",
+};
+
+char *usb_functions_lge_cdrom_storage_adb[] = {
+	"usb_cdrom_storage", "adb",
+
+};
+
+char *usb_functions_lge_charge_only[] = {
+	"charge_only",
+
+};
+#endif
+
 /* QCT original's composition array is existed in device_lge.c */
 struct android_usb_product usb_products[] = {
 /*LGSI_CHANGE_S <pranav.s@lge.com> PIF cable detection change*/
-#if 0	
 	{
 		.product_id = 0x618E,
 		.num_functions = ARRAY_SIZE(usb_functions_lge_android_plat),
 		.functions = usb_functions_lge_android_plat,
 	},
-#endif	
 /*LGSI_CHANGE_S <pranav.s@lge.com> PIF cable detection change*/
 	{
 		.product_id = 0x618E,
@@ -278,13 +295,31 @@ struct android_usb_product usb_products[] = {
 		.functions = usb_functions_lge_android_mtp_adb,
 	},
 #endif
-
 	{
 		.product_id = 0x61CC,
 		//.product_id = 0x61C5,
 		.num_functions = ARRAY_SIZE(usb_functions_lge_mass_stroage_only),
 		.functions = usb_functions_lge_mass_stroage_only,
 	},
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+	{
+		/* FIXME: This pid is just for test */
+		.product_id = 0x91C8,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_cdrom_storage_only),
+		.functions = usb_functions_lge_cdrom_storage_only,
+	},
+	{
+		.product_id = 0x61A6,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_cdrom_storage_adb),
+		.functions = usb_functions_lge_cdrom_storage_adb,
+	},
+	{
+		/* Charge only doesn't have no specific pid */
+		.product_id = 0xFFFF,
+		.num_functions = ARRAY_SIZE(usb_functions_lge_charge_only),
+		.functions = usb_functions_lge_charge_only,
+	},
+#endif
 };
 
 struct usb_mass_storage_platform_data mass_storage_pdata = {
@@ -382,6 +417,28 @@ struct platform_device acm_device = {
 };
 #endif
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
+/* LGE_CHANGE
+ * Add platform data and device for cdrom storage function.
+ * It will be used in Autorun feature.
+ * 2011-03-02, hyunhui.park@lge.com
+ */
+struct usb_cdrom_storage_platform_data cdrom_storage_pdata = {
+	.nluns      = 1,
+	.vendor     = "LGE",
+	.product    = "Android Platform",
+	.release    = 0x0100,
+};
+
+struct platform_device usb_cdrom_storage_device = {
+	.name   = "usb_cdrom_storage",
+	.id = -1,
+	.dev    = {
+	.platform_data = &cdrom_storage_pdata,
+	},
+};
+#endif
+
 struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id  = 0x1004,
 	.product_id = 0x618E,
@@ -392,7 +449,7 @@ struct android_usb_platform_data android_usb_pdata = {
 	.products = usb_products,
 	.num_functions = ARRAY_SIZE(usb_functions_lge_all),
 	.functions = usb_functions_lge_all,
-	.serial_number = "LGANDROID__670",
+	.serial_number = "LGANDROID__ICS",
 };
 
 #endif /* CONFIG_USB_ANDROID */
