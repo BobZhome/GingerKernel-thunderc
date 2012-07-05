@@ -1826,18 +1826,36 @@ static void msm_pm_restart(char str, const char *cmd)
 		rc_buffer = (unsigned int *)get_ram_console_buffer();
 		*rc_buffer = 0x0;
 
-	    spin_lock_irqsave(&state_lock, irqflags);
-		smsm_reset_modem(SMSM_APPS_SHUTDOWN);
-		smsm_reset_modem(SMSM_SYSTEM_REBOOT);
+		spin_lock_irqsave(&state_lock, irqflags);
+		/*
+		 * 2011-03-27, jinkyu.choi@lge.com
+		 * instead of the arm9 crash, use the PCOM_RESET_CHIP_IMM for fast reboot.
+		 */
+		msm_proc_comm(PCOM_RESET_CHIP_IMM, &restart_reason, 0);
 
 		while (1)
 			;
 	}
-	
 #endif
 
+/* FIXME: Block the rpcrouter close when system restart
+ *	  Sometimes, RPC CALL is called atfer RPC is closed
+ *        taehung.kim@lge.com
+ */
+#if 0
 	msm_rpcrouter_close();
+#endif
+
+	/*
+	 * 2011-04-20, jinkyu.choi@lge.com,
+	 * use the PCOM_RESET_CHIP_IMM,
+	 * because the reboot reason is overwritten by another rpoc_com such as ebi1_clk_min
+	 */
+#ifdef CONFIG_MACH_LGE
+	msm_proc_comm(PCOM_RESET_CHIP_IMM, &restart_reason, 0);
+#else /* QCT origin */
 	msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
+#endif
 
 	for (;;)
 		;
