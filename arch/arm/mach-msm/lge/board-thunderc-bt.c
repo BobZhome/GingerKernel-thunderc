@@ -65,6 +65,7 @@ static int thunderc_bluetooth_power(int on)
 	int pin, rc;
 
 	printk(KERN_DEBUG "%s\n", __func__);
+	printk( "%s %d\n", __func__, on);
 
 	if (on) {
 		for (pin = 0; pin < ARRAY_SIZE(bt_config_power_on); pin++) {

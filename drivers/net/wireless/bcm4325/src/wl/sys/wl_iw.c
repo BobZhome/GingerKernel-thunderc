@@ -6393,7 +6393,7 @@ static int wl_iw_set_priv(
 #endif	/* CONFIG_BRCM_LGE_WL_HOSTWAKEUP_IOCTL */
 /* LGE_CHANGE_E [yoohoo@lge.com] 2009-05-14, support private command */ 
 	    else {
-			printk("Unkown PRIVATE command , ignored (%s)\n", extra); /* yoohoo */
+			//printk("Unkown PRIVATE command , ignored (%s)\n", extra); /* yoohoo */
 			snprintf(extra, MAX_WX_STRING, "OK");
 			dwrq->length = strlen("OK") + 1;
 			WL_ERROR(("Unkown PRIVATE command , ignored\n"));
