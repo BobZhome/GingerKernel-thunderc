@@ -55,46 +55,29 @@
  * 2010-05-13, taehung.kim@lge.com
  */
 /* LGE_CHANGES_S [woonghee@lge.com] 2009-09-25, battery charging */
-//LGSI_LS670_FroyoToGB_CTS Issue Merges_Suresh_28May2011_START
 #define PSEUDO_BATT_ATTR(_name)					\
 {									\
-	.attr = { .name = #_name, .mode = 0664 },	\
+	.attr = { .name = #_name, .mode = 0666 },	\
 	.show = pseudo_batt_show_property,				\
 	.store = pseudo_batt_store_property,							\
 }
-
-#define CHARGING_TIMER_ATTR(_name)					\
-{									\
-	.attr = { .name = #_name, .mode = 0664 },	\
-	.show = charging_timer_show_property,				\
-	.store = charging_timer_store_property,				\
-}
-
-/* LGE_CHANGE [dojipl@kim@lge.com] 2010-08-09 */
+/* LGE_CHANGE
+ * Support block charging for Q-gate
+ * 2010-07-18, taehung.kim@lge.com
+ */
 #define BLOCK_CHARGING_ATTR(_name)					\
 {									\
-	.attr = { .name = #_name, .mode = 0664 },	\
+	.attr = { .name = #_name, .mode = 0666 },	\
 	.show = block_charging_show_property,				\
 	.store = block_charging_store_property,							\
 }
-
-/* LGE_CHANGE [dojipl@kim@lge.com] 2010-08-09 */
-#if defined(CONFIG_LGE_THERM_NO_STOP_CHARGING)
-#define THERM_NO_STOP_CHARGING_ATTR(_name)				\
-{									\
-	.attr = { .name = #_name, .mode = 0664 },	\
-	.show = therm_no_stop_charging_show_property,			\
-	.store = therm_no_stop_charging_store_property,			\
-}
 #endif
-#endif
-//LGSI_LS670_FroyoToGB_CTS Issue Merges_Suresh_28May2011_END
 
 #define POWER_SUPPLY_ATTR(_name)					\
 {									\
-	.attr = { .name = #_name },					\
+	.attr = { .name = #_name, .mode = 0444 },	\
 	.show = power_supply_show_property,				\
-	.store = power_supply_store_property,				\
+	.store = NULL,							\
 }
 
 static struct device_attribute power_supply_attrs[];
@@ -102,9 +85,6 @@ static struct device_attribute power_supply_attrs[];
 static ssize_t power_supply_show_property(struct device *dev,
 					  struct device_attribute *attr,
 					  char *buf) {
-	static char *type_text[] = {
-		"Battery", "UPS", "Mains", "USB"
-	};
 	static char *status_text[] = {
 		"Unknown", "Charging", "Discharging", "Not charging", "Full"
 	};
@@ -122,21 +102,15 @@ static ssize_t power_supply_show_property(struct device *dev,
 	static char *capacity_level_text[] = {
 		"Unknown", "Critical", "Low", "Normal", "High", "Full"
 	};
-	ssize_t ret = 0;
+	ssize_t ret;
 	struct power_supply *psy = dev_get_drvdata(dev);
 	const ptrdiff_t off = attr - power_supply_attrs;
 	union power_supply_propval value;
 
-	if (off == POWER_SUPPLY_PROP_TYPE)
-		value.intval = psy->type;
-	else
-		ret = psy->get_property(psy, off, &value);
+	ret = psy->get_property(psy, off, &value);
 
 	if (ret < 0) {
-		if (ret == -ENODATA)
-			dev_dbg(dev, "driver has no data for `%s' property\n",
-				attr->attr.name);
-		else if (ret != -ENODEV)
+		if (ret != -ENODEV)
 			dev_err(dev, "driver failed to report `%s' property\n",
 				attr->attr.name);
 		return ret;
@@ -152,8 +126,6 @@ static ssize_t power_supply_show_property(struct device *dev,
 		return sprintf(buf, "%s\n", technology_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_CAPACITY_LEVEL)
 		return sprintf(buf, "%s\n", capacity_level_text[value.intval]);
-	else if (off == POWER_SUPPLY_PROP_TYPE)
-		return sprintf(buf, "%s\n", type_text[value.intval]);
 #if defined (CONFIG_MACH_MSM7X27_ALOHAV) || defined (CONFIG_MACH_MSM7X27_THUNDERC)
 /* LGE_CHNAGE
  * ADD THUNDERC feature to use VS740 BATT DRIVER IN THUNDERC
@@ -227,50 +199,10 @@ out:
 	return ret;
 }
 
-static ssize_t charging_timer_show_property(struct device *dev,
-		struct device_attribute *attr,
-		char *buf)
-{
-	ssize_t ret;
-	struct power_supply *psy = dev_get_drvdata(dev);
-	const ptrdiff_t off = attr - power_supply_attrs;
-	union power_supply_propval value;
-
-	ret = psy->get_property(psy, off, &value);
-
-	if (ret < 0) {
-		if (ret != -ENODEV)
-			dev_err(dev, "driver failed to report `%s' property\n",
-				attr->attr.name);
-		return ret;
-	}
-	if (off == POWER_SUPPLY_PROP_CHARGING_TIMER)
-		return sprintf(buf, "%d", value.intval);
-
-	return 0;
-}
-
-extern int charging_timer_set(int intVal);
-
-static ssize_t charging_timer_store_property(struct device *dev,
-		  struct device_attribute *attr,
-		  const char *buf, size_t n)
-{
-	int ret = -EINVAL;
-	//struct pseudo_batt_info_type info;
-	int intVal;
-
-	if (sscanf(buf, "%d", &intVal) != 1) {
-		printk(KERN_ERR "usage : echo [0/1] > charging_timer");
-		goto out;
-	}
-	charging_timer_set(intVal);
-	ret = n;
-out:
-	return ret;
-}
-
-/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-08-09 */
+/* LGE_CHNAGE
+ * Support block charging for Q-gate
+ * 2010-07-18, taehung.kim@lge.com
+ */
 extern void batt_block_charging_set(int);
 static ssize_t block_charging_store_property(struct device *dev,
 		struct device_attribute *attr,
@@ -318,73 +250,7 @@ static ssize_t block_charging_show_property(struct device *dev,
 
 	return 0;
 }
-/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-08-09 */
 #endif
-static ssize_t power_supply_store_property(struct device *dev,
-					   struct device_attribute *attr,
-					   const char *buf, size_t count) {
-	ssize_t ret;
-	struct power_supply *psy = dev_get_drvdata(dev);
-	const ptrdiff_t off = attr - power_supply_attrs;
-	union power_supply_propval value;
-	long long_val;
-
-	/* TODO: support other types than int */
-	ret = strict_strtol(buf, 10, &long_val);
-	if (ret < 0)
-		return ret;
-
-	value.intval = long_val;
-
-	ret = psy->set_property(psy, off, &value);
-	if (ret < 0)
-		return ret;
-
-	return count;
-}
-#if defined(CONFIG_LGE_THERM_NO_STOP_CHARGING)
-static ssize_t therm_no_stop_charging_show_property(struct device *dev,
-		struct device_attribute *attr,
-		char *buf)
-{
-	ssize_t ret;
-	struct power_supply *psy = dev_get_drvdata(dev);
-	const ptrdiff_t off = attr - power_supply_attrs;
-	union power_supply_propval value;
-
-	ret = psy->get_property(psy, off, &value);
-
-	if (ret < 0) {
-		if (ret != -ENODEV)
-			dev_err(dev, "driver failed to report `%s' property\n",
-				attr->attr.name);
-		return ret;
-	}
-	if (off == POWER_SUPPLY_PROP_THERM_NO_STOP_CHARGING)
-		return sprintf(buf, "%d", value.intval);
-
-	return 0;
-}
-
-extern void msm_batt_therm_no_stop_charging(int no_stop);
-
-static ssize_t therm_no_stop_charging_store_property(struct device *dev,
-		  struct device_attribute *attr,
-		  const char *buf, size_t count)
-{
-	int ret = -EINVAL;
-	//struct pseudo_batt_info_type info;
-	int no_stop;
-
-	if (sscanf(buf, "%d", &no_stop) != 1) {
-		printk(KERN_ERR "usage : echo [0/1] > therm_no_stop_charging");
-		return ret;
-	}
-	msm_batt_therm_no_stop_charging(no_stop);
-
-	return count;
-}
-#endif /* CONFIG_LGE_THERM_NO_STOP_CHARGING */
 
 /* Must be in the same order as POWER_SUPPLY_PROP_* */
 static struct device_attribute power_supply_attrs[] = {
@@ -395,7 +261,6 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(present),
 	POWER_SUPPLY_ATTR(online),
 	POWER_SUPPLY_ATTR(technology),
-	POWER_SUPPLY_ATTR(cycle_count),
 	POWER_SUPPLY_ATTR(voltage_max),
 	POWER_SUPPLY_ATTR(voltage_min),
 	POWER_SUPPLY_ATTR(voltage_max_design),
@@ -448,7 +313,6 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(time_to_empty_avg),
 	POWER_SUPPLY_ATTR(time_to_full_now),
 	POWER_SUPPLY_ATTR(time_to_full_avg),
-	POWER_SUPPLY_ATTR(type),
 	/* Properties of type `const char *' */
 	POWER_SUPPLY_ATTR(model_name),
 	POWER_SUPPLY_ATTR(manufacturer),
@@ -462,21 +326,18 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(valid_batt_id),
 	POWER_SUPPLY_ATTR(batt_therm),
 	PSEUDO_BATT_ATTR(pseudo_batt),
-	/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-21, add chargint timer */
-	CHARGING_TIMER_ATTR(charging_timer),
 	/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670],
 	 * add extra batt info
 	 */
-	/* LGE_CHANGE [dojip.kim@lge.com] 2010-08-09 */
-	BLOCK_CHARGING_ATTR(block_charging),
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
-	POWER_SUPPLY_ATTR(batt_therm_state),
-	/* LGE_CHANGE [dojip.kim@lge.com] 2010-08-09 */
-#if defined(CONFIG_LGE_THERM_NO_STOP_CHARGING)
-	THERM_NO_STOP_CHARGING_ATTR(therm_no_stop_charging),	
-#endif /* #if defined(CONFIG_LGE_THERM_NO_STOP_CHARGING) */
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
+	POWER_SUPPLY_ATTR(batt_thrm_state),
 #endif
 	/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-05-17 */
+/* LGE_CHNAGE
+ * Support block charging for Q-gate
+ * 2010-07-18, taehung.kim@lge.com
+ */
+	BLOCK_CHARGING_ATTR(block_charging),//43
 #endif
 };
 
@@ -492,54 +353,49 @@ static ssize_t power_supply_show_static_attrs(struct device *dev,
 static struct device_attribute power_supply_static_attrs[] = {
 	__ATTR(type, 0444, power_supply_show_static_attrs, NULL),
 };
-static struct attribute *
-__power_supply_attrs[ARRAY_SIZE(power_supply_attrs) + 1];
 
-static mode_t power_supply_attr_is_visible(struct kobject *kobj,
-					   struct attribute *attr,
-					   int attrno)
+int power_supply_create_attrs(struct power_supply *psy)
 {
-	struct device *dev = container_of(kobj, struct device, kobj);
-	struct power_supply *psy = dev_get_drvdata(dev);
-	mode_t mode = S_IRUSR | S_IRGRP | S_IROTH;
-	int i;
+	int rc = 0;
+	int i, j;
 
-	if (attrno == POWER_SUPPLY_PROP_TYPE)
-		return mode;
-
-	for (i = 0; i < psy->num_properties; i++) {
-		int property = psy->properties[i];
-
-		if (property == attrno) {
-			if (psy->property_is_writeable &&
-			    psy->property_is_writeable(psy, property) > 0)
-				mode |= S_IWUSR;
-
-			return mode;
-		}
+	for (i = 0; i < ARRAY_SIZE(power_supply_static_attrs); i++) {
+		rc = device_create_file(psy->dev,
+			    &power_supply_static_attrs[i]);
+		if (rc)
+			goto statics_failed;
 	}
 
-	return 0;
+	for (j = 0; j < psy->num_properties; j++) {
+		rc = device_create_file(psy->dev,
+			    &power_supply_attrs[psy->properties[j]]);
+		if (rc)
+			goto dynamics_failed;
+	}
+
+	goto succeed;
+
+dynamics_failed:
+	while (j--)
+		device_remove_file(psy->dev,
+			   &power_supply_attrs[psy->properties[j]]);
+statics_failed:
+	while (i--)
+		device_remove_file(psy->dev, &power_supply_static_attrs[i]);
+succeed:
+	return rc;
 }
 
-static struct attribute_group power_supply_attr_group = {
-	.attrs = __power_supply_attrs,
-	.is_visible = power_supply_attr_is_visible,
-};
-
-static const struct attribute_group *power_supply_attr_groups[] = {
-	&power_supply_attr_group,
-	NULL,
-};
-
-void power_supply_init_attrs(struct device_type *dev_type)
+void power_supply_remove_attrs(struct power_supply *psy)
 {
 	int i;
 
-	dev_type->groups = power_supply_attr_groups;
+	for (i = 0; i < ARRAY_SIZE(power_supply_static_attrs); i++)
+		device_remove_file(psy->dev, &power_supply_static_attrs[i]);
 
-	for (i = 0; i < ARRAY_SIZE(power_supply_attrs); i++)
-		__power_supply_attrs[i] = &power_supply_attrs[i].attr;
+	for (i = 0; i < psy->num_properties; i++)
+		device_remove_file(psy->dev,
+			    &power_supply_attrs[psy->properties[i]]);
 }
 
 static char *kstruprdup(const char *str, gfp_t gfp)

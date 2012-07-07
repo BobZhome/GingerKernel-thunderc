@@ -23,10 +23,16 @@
 #include <mach/board.h>
 #include <mach/board_lge.h>
 #include <mach/rpc_server_handset.h>
+
+#include <linux/synaptics_i2c_rmi.h>	//20100705 myeonggyu.son@lge.com [MS690] synaptcis touch series
 // LGE_CHANGE [dojip.kim@lge.com] 2010-07-18, check the pcb revision
 #include <mach/board_lge.h>
 
 #include "board-thunderc.h"
+
+//20100727 myeonggyu.son@lge.com [MS690] pcd revision [START]
+#include <mach/lg_pcb_version.h>
+//20100727 myeonggyu.son@lge.com [MS690] pcd revision [END]
 
 static int prox_power_set(unsigned char onoff);
 
@@ -235,6 +241,14 @@ static int ts_set_vreg(unsigned char onoff)
 EXPORT_SYMBOL(ts_set_vreg);
 #endif
 
+#if 1
+static struct synaptics_i2c_rmi_platform_data ts_pdata = {
+	.version = 0x0,
+	.irqflags = IRQF_TRIGGER_FALLING,
+//	.use_irq = true,
+//	.power = ts_set_vreg,
+};
+#else
 static struct touch_platform_data ts_pdata = {
 	.ts_x_min = TS_X_MIN,
 	.ts_x_max = TS_X_MAX,
@@ -245,7 +259,19 @@ static struct touch_platform_data ts_pdata = {
 	.scl      = TS_GPIO_I2C_SCL,
 	.sda      = TS_GPIO_I2C_SDA,
 };
+#endif
+//20100705 myeonggyu.son@lge.com [MS690] synatics touch series [END]
 
+//20100705 myeonggyu.son@lge.com [MS690] synatics touch series [START]
+#if 1
+static struct i2c_board_info ts_i2c_bdinfo[] = {
+	[0] = {
+		I2C_BOARD_INFO("synaptics-rmi-ts", TS_I2C_SLAVE_ADDR),
+		.type = "synaptics-rmi-ts",
+		.platform_data = &ts_pdata,
+	},
+};
+#else
 static struct i2c_board_info ts_i2c_bdinfo[] = {
 	[0] = {
 		I2C_BOARD_INFO("touch_mcs6000", TS_I2C_SLAVE_ADDR),
@@ -253,6 +279,8 @@ static struct i2c_board_info ts_i2c_bdinfo[] = {
 		.platform_data = &ts_pdata,
 	},
 };
+#endif
+//20100705 myeonggyu.son@lge.com [MS690] synatics touch series [END]
 
 static void __init thunderc_init_i2c_touch(int bus_num)
 {
@@ -286,6 +314,21 @@ static void kr_exit(void)
 {
 }
 
+//20100810 myeonggyu.son@lge.com [MS690] 3V MOTION PMIC Power control [START]
+enum {
+	MOTION_POWER_OFF=0,
+	MOTION_POWER_ON
+};
+enum {
+	PROXI_POWER_OFF=0,
+	PROXI_POWER_ON
+};
+
+static int motion_power_status = MOTION_POWER_OFF;
+static int proxi_power_status = PROXI_POWER_OFF;
+//20100810 myeonggyu.son@lge.com [MS690] 3V MOTION PMIC Power control [END]
+
+//20100810 myeonggyu.son@lge.com [MS690] 3V MOTION PMIC Power control [START]
 static int accel_power_on(void)
 {
 	int ret = 0;
@@ -293,8 +336,12 @@ static int accel_power_on(void)
 
 	printk("[Accelerometer] %s() : Power On\n",__FUNCTION__);
 
-	vreg_set_level(gp3_vreg, 3000);
-	vreg_enable(gp3_vreg);
+	if(motion_power_status == MOTION_POWER_OFF)
+	{		
+		vreg_set_level(gp3_vreg, 3000);
+		vreg_enable(gp3_vreg);
+		motion_power_status = MOTION_POWER_ON;
+	}
 
 	return ret;
 }
@@ -306,7 +353,11 @@ static int accel_power_off(void)
 
 	printk("[Accelerometer] %s() : Power Off\n",__FUNCTION__);
 
-	vreg_disable(gp3_vreg);
+	if(motion_power_status == MOTION_POWER_ON)
+	{
+		vreg_disable(gp3_vreg);
+		motion_power_status = MOTION_POWER_OFF;
+	}
 
 	return ret;
 }
@@ -369,12 +420,12 @@ static void __init thunderc_init_i2c_acceleration(int bus_num)
 
 	init_gpio_i2c_pin(&accel_i2c_pdata, accel_i2c_pin[0], &accel_i2c_bdinfo[0]);
 
-	// LGE_CHANGE [dojip.kim@lge.com] 2010-07-18, check the pcb revision
-	//i2c_register_board_info(bus_num, &accel_i2c_bdinfo[0], 2);
-	if (lge_bd_rev >= 9) /* KR_3DH >= Rev. 1.1 */
+	//20100727 myeonggyu.son@lge.com [MS690] accelerator device init -KR3DM & KR3DH [START]
+	if(lge_bd_rev >= HW_PCB_REV_10)
 		i2c_register_board_info(bus_num, &accel_i2c_bdinfo[0], 1);
 	else
 		i2c_register_board_info(bus_num, &accel_i2c_bdinfo[1], 1);
+	//20100727 myeonggyu.son@lge.com [MS690] accelerator device init - KR3DM & KR3DH [END]
 	platform_device_register(&accel_i2c_device);
 }
 
@@ -396,26 +447,32 @@ static int ecom_power_set(unsigned char onoff)
 	printk("[Ecompass] %s() : Power %s\n",__FUNCTION__, onoff ? "On" : "Off");
 
 	if (onoff) {
-		if (ecom_is_power_on == ECOM_POWER_OFF) {
-		vreg_set_level(gp3_vreg, 3000);
-		vreg_enable(gp3_vreg);
+		if(motion_power_status== MOTION_POWER_OFF)
+		{
+			vreg_set_level(gp3_vreg, 3000);
+			vreg_enable(gp3_vreg);
+			motion_power_status = MOTION_POWER_ON;
 
-		/* proximity power on , when we turn off I2C line be set to low caues sensor H/W characteristic */
-#ifdef CONFIG_MACH_MSM7X27_THUNDERC_SPRINT
-			vreg_set_level(gp6_vreg, 2900);
-#else
-			vreg_set_level(gp6_vreg, 2800);
-#endif
-		vreg_enable(gp6_vreg);
-			ecom_is_power_on = ECOM_POWER_ON;
+			/* proximity power on , when we turn off I2C line be set to low caues sensor H/W characteristic */
+			if(proxi_power_status == PROXI_POWER_OFF)
+			{
+				vreg_set_level(gp6_vreg, 2800);
+				vreg_enable(gp6_vreg);
+				proxi_power_status = PROXI_POWER_ON;
+			}
 		}
 	} else {
-		if (ecom_is_power_on == ECOM_POWER_ON) {
-		vreg_disable(gp3_vreg);
+		if(motion_power_status== MOTION_POWER_ON)
+		{
+			vreg_disable(gp3_vreg);
+			motion_power_status = MOTION_POWER_OFF;
 
-		/* proximity power off */
-		vreg_disable(gp6_vreg);
-			ecom_is_power_on = ECOM_POWER_OFF;
+			/* proximity power off */
+			if(proxi_power_status == PROXI_POWER_ON)
+			{
+				vreg_disable(gp6_vreg);
+				proxi_power_status = PROXI_POWER_OFF;
+			}
 		}
 	}
 
@@ -429,11 +486,6 @@ static struct ecom_platform_data ecom_pdata = {
 };
 
 // LGE_CHANGE [dojip.kim@lge.com] 2010-07-21, proxi power control (from MS690)
-#define PROX_POWER_OFF		0
-#define PROX_POWER_ON		1
-
-static int prox_is_power_on = PROX_POWER_OFF;
-
 static int prox_power_set(unsigned char onoff)
 {
 	int ret = 0;
@@ -442,28 +494,17 @@ static int prox_power_set(unsigned char onoff)
 	printk("[Proximity] %s() : Power %s\n",__FUNCTION__, onoff ? "On" : "Off");
 
 	if (onoff) {
-		/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-24, [LS670]
-		 * change the voltage: 2.8V -> 3.0V
-		 */
-		/* LGE_CHANGE [dojip.kim@lge.com] 2010-08-22, [LS670]
-		 * change the voltage: 3.0V -> 2.9V
-		 */
-		if (prox_is_power_on == PROX_POWER_OFF) {
-#ifdef CONFIG_MACH_MSM7X27_THUNDERC_SPRINT
-			vreg_set_level(gp6_vreg, 2900);
-#else
+		if(proxi_power_status == PROXI_POWER_OFF)
+		{
 			vreg_set_level(gp6_vreg, 2800);
-#endif
 			vreg_enable(gp6_vreg);
-
-			prox_is_power_on = PROX_POWER_ON;
+			proxi_power_status = PROXI_POWER_ON;
 		}
-	} 
-	else {
-		if (prox_is_power_on == PROX_POWER_ON) {
+	} else {
+		if(proxi_power_status == PROXI_POWER_ON)
+		{
 			vreg_disable(gp6_vreg);
-
-			prox_is_power_on = PROX_POWER_OFF;
+			proxi_power_status = PROXI_POWER_OFF;
 		}
 	}
 

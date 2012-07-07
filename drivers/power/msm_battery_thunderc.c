@@ -79,6 +79,14 @@
 #include <linux/wakelock.h>
 #endif
 /* LGE_CHANGE_E [woonghee.park@lge.com] 2010-03-18, ALARM */
+/* LGE_CHANGES_S [jaeho.cho@lge.com] 2010-10-02, charger logo notification to modem */
+#ifdef CONFIG_LGE_CHARGER_LOGO_MODE_NOTI
+#include <linux/types.h>
+#include <linux/device.h>
+#include <linux/miscdevice.h>
+#include <linux/fs.h>
+#endif
+/* LGE_CHANGES_S [jaeho.cho@lge.com] 2010-10-02, charger logo notification to modem */
 
 #define BATTERY_RPC_PROG	0x30000089
 #define BATTERY_RPC_VERS	0x00010001
@@ -136,7 +144,6 @@
 #define DBG(x...) printk(KERN_INFO x)
 #else
 #define DBG(x...) do {} while (0)
-
 #endif
 
 // LGE_CHANGE [dojip.kim@lge.com] 2010-08-06, add pif 
@@ -184,7 +191,6 @@ enum {
 	CHG_UI_EVENT_LOW_POWER,	/* Low Battery + Strog Charger.  */
 	CHG_UI_EVENT_NORMAL_POWER, /* Enough Power for most applications. */
 	CHG_UI_EVENT_DONE,	/* Done charging, batt full.  */
-	CHG_UI_EVENT_CHARGING_TIMER_EXPIRED,	/* charging timer expired, charging stopped */
 	CHG_UI_EVENT_INVALID,
 	CHG_UI_EVENT_MAX32 = 0x7fffffff
 };
@@ -245,10 +251,15 @@ struct msm_battery_info {
   u32 valid_battery_id;
   u32 battery_therm;
 	/* LGE_CHANGES_E [woonghee.park@lge.com]*/
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+
+	/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670]
+	 * add extra batt info (from LS680)
+	 */
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 	u32 chg_current;
 	u32 batt_thrm_state;
 #endif
+	/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-05-17 */
 
 	u32(*calculate_capacity) (u32 voltage);
 
@@ -275,6 +286,10 @@ struct msm_battery_info {
 	atomic_t cb_thread_stopped;
 };
 
+//#ifdef CONFIG_LGE_DIAG_TESTMODE
+extern void set_first_booting_chg_mode_status(int status);
+//#endif
+
 static void msm_batt_wait_for_batt_chg_event(struct work_struct *work);
 
 static DECLARE_WORK(msm_batt_cb_work, msm_batt_wait_for_batt_chg_event);
@@ -288,16 +303,7 @@ static struct msm_battery_info msm_batt_info = {
 static struct pseudo_batt_info_type pseudo_batt_info = {
   .mode = 0,
 };
-
-// LGE_CHANGE [dojip.kim@lge.com] 2010-08-09
-static int block_charging_state = 1;  //1 : charging , 0: block charging
-
-// LGE_CHANGE [dojip.kim@lge.com] 2010-08-09
-// LGE_CHANGE [dojip.kim@lge.com] 2010-08-09, 
-// no stop charging even if hot or cold battery
-#if defined(CONFIG_LGE_THERM_NO_STOP_CHARGING)
-static int no_stop_charging = 0;
-#endif
+static int block_charging_state = 1;//1 : charging , 0: block charging
 
 static enum power_supply_property msm_power_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
@@ -306,13 +312,6 @@ static enum power_supply_property msm_power_props[] = {
 static char *msm_power_supplied_to[] = {
 	"battery",
 };
-
-/* LGE_CHANGES_S [woonghee.park@lge.com] 2010-05_18, [VS740], LG_FW_CHARGING_TIMER*/
-extern void set_charging_timer(int);
-extern void get_charging_timer(int *);
-int charging_timer_enable = -1;
-
-/* LGE_CHANGES_E [woonghee.park@lge.com] 2010-05_18, [VS740]*/
 
 static int msm_power_get_property(struct power_supply *psy,
 				  enum power_supply_property psp,
@@ -380,14 +379,15 @@ static enum power_supply_property msm_batt_power_props[] = {
   POWER_SUPPLY_PROP_BATTERY_ID_CHECK,
   POWER_SUPPLY_PROP_BATTERY_TEMP_ADC,
   POWER_SUPPLY_PROP_PSEUDO_BATT,
-  POWER_SUPPLY_PROP_CHARGING_TIMER,
-  POWER_SUPPLY_PROP_BLOCK_CHARGING,
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+	/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670],
+	 * add extra batt info (from LS680)
+	 */
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_BATTERY_THRM_STATE,
-	/* LGE_CHANGE [dojip.kim@lge.com] 2010-08-09 */
-	POWER_SUPPLY_PROP_THERM_NO_STOP_CHARGING
 #endif
+	/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-05-17 */
+  POWER_SUPPLY_PROP_BLOCK_CHARGING,
   /* LGE_CHANGES_E [woonghee.park@lge.com]*/
 };
 
@@ -482,10 +482,10 @@ static int msm_batt_power_get_property(struct power_supply *psy,
     val->intval = pseudo_batt_info.mode;
     break;
 
-  case POWER_SUPPLY_PROP_BLOCK_CHARGING:
-    val->intval = block_charging_state;
-    break;
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+		/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670]
+		 * add extra batt info (from LS680)
+		 */
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = msm_batt_info.chg_current;
 		break;
@@ -493,31 +493,13 @@ static int msm_batt_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_BATTERY_THRM_STATE:
 		val->intval = msm_batt_info.batt_thrm_state;
 		break;
-
-		/* LGE_CHANGE [dojip.kim@lge.com] 2010-08-09 */
-#if defined(CONFIG_LGE_THERM_NO_STOP_CHARGING)
-	case POWER_SUPPLY_PROP_THERM_NO_STOP_CHARGING:
-		val->intval = no_stop_charging;
-		break;
-#endif /* CONFIG_LGE_THERM_NO_STOP_CHARGING */
 #endif
 		/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-05-17 */
-	
-/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-21, 
- * add CHG_UI_EVENT_CHARGING_TIMER_EXPIRED (from VS740) 
- */
-	case POWER_SUPPLY_PROP_CHARGING_TIMER:
-		{
-			u32 intval;
-			if (charging_timer_enable != -1)
-				val->intval = charging_timer_enable;
-			else {
-				get_charging_timer(&intval);
-				val->intval = be32_to_cpu(intval);
-				charging_timer_enable = (int)val->intval;
-			}
-			break;
-		}
+
+  case POWER_SUPPLY_PROP_BLOCK_CHARGING:
+    val->intval = block_charging_state;
+    break;
+
 	default:
 		return -EINVAL;
 	}
@@ -561,18 +543,6 @@ int pseudo_batt_set(struct pseudo_batt_info_type* info)
 }
 EXPORT_SYMBOL(pseudo_batt_set);
 
-/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-21, 
- * add CHG_UI_EVENT_CHARGING_TIMER_EXPIRED (from VS740) 
- */
-int charging_timer_set(int intVal)
-{
-	set_charging_timer(intVal);
-	charging_timer_enable = intVal;
-	return 0;
-}
-EXPORT_SYMBOL(charging_timer_set);
-
-/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-08-09 */
 extern void block_charging_set(int);
 void batt_block_charging_set(int block)
 {
@@ -580,19 +550,6 @@ void batt_block_charging_set(int block)
 	block_charging_set(block);
 }
 EXPORT_SYMBOL(batt_block_charging_set);
-/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-08-09 */
-
-// LGE_CHANGE [dojip.kim@lge.com] 2010-08-09, 
-// no stop charging even if hot or cold battery
-#if defined(CONFIG_LGE_THERM_NO_STOP_CHARGING)
-extern void set_charging_therm_no_stop_charging(int info);
-void msm_batt_therm_no_stop_charging(int no_stop) 
-{
-	no_stop_charging = no_stop;
-	set_charging_therm_no_stop_charging(no_stop);
-}
-EXPORT_SYMBOL(msm_batt_therm_no_stop_charging);
-#endif
 
 struct batt_info batt_info_buf;
 /* LGE_CHANGES_E [woonghee.park@lge.com]*/
@@ -603,17 +560,17 @@ struct rpc_reply_batt_chg {
 
 	u32	battery_level;
 	u32  battery_voltage;
-  u32  battery_id;
-  u32  battery_therm;
+	u32  battery_id;
+	u32  battery_therm;
 	u32	battery_temp;
-  u32  battery_valid;
-  u32  battery_charging;
-  u32  charger_valid;
-  u32  chg_batt_event;
+	u32  battery_valid;
+	u32  battery_charging;
+	u32  charger_valid;
+	u32  chg_batt_event;
 	/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670],
 	 * add extra batt info (from LS680)
 	 */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 	u32 chg_current;
 	u32 batt_thrm_state;
 #endif
@@ -669,42 +626,42 @@ static int msm_batt_get_batt_chg_status_v1(u32 *batt_charging,
 		rep_batt_chg.battery_temp =
 			be32_to_cpu(rep_batt_chg.battery_temp);
 
-	  rep_batt_chg.battery_valid =
-		  be32_to_cpu(rep_batt_chg.battery_valid);
-	
-  	rep_batt_chg.battery_charging =
-  		be32_to_cpu(rep_batt_chg.battery_charging);
+		rep_batt_chg.battery_valid =
+			be32_to_cpu(rep_batt_chg.battery_valid);
 
-  	rep_batt_chg.charger_valid =
-  		be32_to_cpu(rep_batt_chg.charger_valid);
+		rep_batt_chg.battery_charging =
+			be32_to_cpu(rep_batt_chg.battery_charging);
 
-  	rep_batt_chg.chg_batt_event =
-  		be32_to_cpu(rep_batt_chg.chg_batt_event);
+		rep_batt_chg.charger_valid =
+			be32_to_cpu(rep_batt_chg.charger_valid);
 
-		/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670],
-		 * add extra batt info (from LS680)
-		 */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+		rep_batt_chg.chg_batt_event =
+			be32_to_cpu(rep_batt_chg.chg_batt_event);
+
+	/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670],
+	 * add extra batt info (from LS680)
+	 */
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 		rep_batt_chg.chg_current =
-		    be32_to_cpu(rep_batt_chg.chg_current);
+			be32_to_cpu(rep_batt_chg.chg_current);
 		rep_batt_chg.batt_thrm_state =
-		    be32_to_cpu(rep_batt_chg.batt_thrm_state);
+			be32_to_cpu(rep_batt_chg.batt_thrm_state);
 #endif
-		/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-05-17 */
+	/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-05-17 */
 
-    msm_batt_info.batt_capacity = rep_batt_chg.battery_level;
-    msm_batt_info.voltage_now = rep_batt_chg.battery_voltage;
+		msm_batt_info.batt_capacity = rep_batt_chg.battery_level;
+		msm_batt_info.voltage_now = rep_batt_chg.battery_voltage;
 		batt_info_buf.valid_batt_id = rep_batt_chg.battery_id;
-    batt_info_buf.batt_therm = rep_batt_chg.battery_therm;
-    batt_info_buf.batt_temp = rep_batt_chg.battery_temp;
-    msm_batt_info.batt_valid = rep_batt_chg.battery_valid;
-    *batt_charging = rep_batt_chg.battery_charging;
-    *charger_valid = rep_batt_chg.charger_valid;
-    *chg_batt_event = rep_batt_chg.chg_batt_event;
+		batt_info_buf.batt_therm = rep_batt_chg.battery_therm;
+		batt_info_buf.batt_temp = rep_batt_chg.battery_temp;
+		msm_batt_info.batt_valid = rep_batt_chg.battery_valid;
+		*batt_charging = rep_batt_chg.battery_charging;
+		*charger_valid = rep_batt_chg.charger_valid;
+		*chg_batt_event = rep_batt_chg.chg_batt_event;
 		/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670],
 		 * add extra batt info (from LS680)
 		 */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 		msm_batt_info.chg_current = rep_batt_chg.chg_current;
 		msm_batt_info.batt_thrm_state = rep_batt_chg.batt_thrm_state;
 #endif
@@ -812,13 +769,11 @@ static int msm_batt_get_batt_chg_status(u32 *batt_charging,
 	}
 	*chg_batt_event = be32_to_cpu(rep_chg.chg_batt_data);
 
-	/* LGE_CHANGES_S [woonghee.park@lge.com] 2010-02-09, [VS740], 
-	 * LG_FW_BATT_ID_CHECK, LG_FW_BATT_THM 
-	 */
-	battery_info_get((struct batt_info *)&batt_info_buf);
-	//printk(KERN_ERR "battery_info_get : auth_id=%d batt_therm_adc=%d batt_temp=%d\n",
-	//               batt_info_buf.valid_batt_id, batt_info_buf.batt_therm, batt_info_buf.batt_temp);        
-	/* LGE_CHANGES_E [woonghee.park@lge.com] */
+	/* LGE_CHANGES_S [woonghee.park@lge.com] 2010-02-09, [VS740], LG_FW_BATT_ID_CHECK, LG_FW_BATT_THM*/
+  battery_info_get((struct batt_info*)&batt_info_buf);
+  //	printk(KERN_ERR "battery_info_get : auth_id=%d batt_therm_adc=%d batt_temp=%d\n",
+  //						batt_info_buf.valid_batt_id, batt_info_buf.batt_therm, batt_info_buf.batt_temp);	
+	/* LGE_CHANGES_E [woonghee.park@lge.com]*/
 
 	charger_hw_type = msm_hsusb_get_charger_type();
 
@@ -831,6 +786,7 @@ static void msm_batt_update_psy_status(void)
 	u32 chg_batt_event = CHG_UI_EVENT_INVALID;
 	u32 charger_valid = 0;
 	// LGE_CHANGE [dojip.kim@lge.com] 2010-09-02, booting via pif without battery
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 #if defined(CONFIG_LGE_DETECT_PIF_PATCH)
 	static int pif_value = -1;
 
@@ -843,6 +799,7 @@ static void msm_batt_update_psy_status(void)
 			pif_value = 0;
 	}
 #endif
+#endif
   if (msm_batt_info.chg_api_version >= CHARGER_API_VERSION)
   {
     msm_batt_get_batt_chg_status_v1(&batt_charging, &charger_valid, &chg_batt_event);
@@ -852,18 +809,19 @@ static void msm_batt_update_psy_status(void)
 		/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670],
 		 * add extra batt info
 		 */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 		batt_info_buf.chg_current = rep_batt_chg.chg_current;
 		batt_info_buf.batt_thrm_state = rep_batt_chg.batt_thrm_state;
 #endif
 		/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-05-17 */
-  }else
+  }
+  else
   	msm_batt_get_batt_chg_status(&batt_charging, &charger_valid, &chg_batt_event);
 
 	/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-17, [LS670],
 	 * add extra batt info
 	 */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 	DBG(KERN_DEBUG "batt_charging = %u  batt_valid = %u batt_volt = %u\n"
 	    "batt_level = %u charger_valid = %u chg_batt_event = %u\n"
 	    "batt_id = %u batt_therm = %u batt_temp = %u\n"
@@ -886,9 +844,10 @@ static void msm_batt_update_psy_status(void)
 	if (msm_batt_info.batt_capacity < 2)
 		printk(KERN_INFO "batt_level = %u\n", msm_batt_info.batt_capacity);
 
-	//printk(KERN_INFO "Previous charger valid status = %u"
-	//		"  current charger valid status = %u\n",
-	//		msm_batt_info.charger_valid, charger_valid);
+
+	DBG(KERN_INFO "Previous charger valid status = %u"
+			"  current charger valid status = %u\n",
+			msm_batt_info.charger_valid, charger_valid);
 	
   /* LGE_CHANGES_S [woonghee.park@lge.com] 2010-02-09, [VS740], LG_FW_BATT_ID_CHECK, LG_FW_BATT_THM*/
   msm_batt_info.valid_battery_id = batt_info_buf.valid_batt_id;
@@ -917,10 +876,11 @@ static void msm_batt_update_psy_status(void)
 
 	// LGE_CHANGE [dojip.kim@lge.com] 2010-09-02, 
 	// fake info for normal booting 
+#if 0//defined(CONFIG_MACH_MSM7X27_THUNDERC)
 #if defined(CONFIG_LGE_DETECT_PIF_PATCH)
 	if (1 == pif_value && 0 == msm_batt_info.valid_battery_id) {
 		msm_batt_info.batt_valid = 1; 
-		//msm_batt_info.valid_battery_id = 1;
+		msm_batt_info.valid_battery_id = 1;
 		msm_batt_info.batt_health = POWER_SUPPLY_HEALTH_GOOD;
 
 		msm_batt_info.voltage_now = 4200;
@@ -941,13 +901,14 @@ static void msm_batt_update_psy_status(void)
 		msm_batt_info.chg_current = batt_info_buf.chg_current;
 		msm_batt_info.batt_thrm_state = batt_info_buf.batt_thrm_state;
 		/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-05-17 */
-	} 
+	} else
+#endif
 #endif
 	/* LGE_CHANGE [dojip.kim@lge.com] 2010-06-04, [LS670]
 	 * display the charging info if battery id is valid
 	 */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
-	else if (msm_batt_info.batt_valid || 
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
+	if (msm_batt_info.batt_valid || 
 	    msm_batt_info.valid_battery_id) {
 #else
 	if (msm_batt_info.batt_valid) {
@@ -964,42 +925,39 @@ static void msm_batt_update_psy_status(void)
 		else
 			msm_batt_info.batt_health = POWER_SUPPLY_HEALTH_GOOD;
 
-		if (batt_charging && msm_batt_info.charger_valid){
+		if (batt_charging && msm_batt_info.charger_valid)
 			msm_batt_info.batt_status =
 			    POWER_SUPPLY_STATUS_CHARGING;
-			/* LGE_CHANGE [dojip.kim@lge.com] 2010-10-06, 
-			 * process is died abnomally when capacity is zero
-			 */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
-			if (msm_batt_info.batt_capacity == 0)
-				msm_batt_info.batt_capacity++;
-#endif
-		}
+//20101021 bryan.lee@lge.com - manage charging state in lock screen [START]
+		else if ( (chg_batt_event == CHG_UI_EVENT_IDLE && msm_batt_info.batt_capacity == 100
+				&& msm_batt_info.charger_valid) )
+			msm_batt_info.batt_status =
+			    POWER_SUPPLY_STATUS_FULL;
+//20101021 bryan.lee@lge.com - manage charging state in lock screen [END]
 		else if (!batt_charging)
 			msm_batt_info.batt_status =
 			    POWER_SUPPLY_STATUS_DISCHARGING;
 
 		if (chg_batt_event == CHG_UI_EVENT_DONE)
-    {
+		{
 			msm_batt_info.batt_status = POWER_SUPPLY_STATUS_FULL;
-      msm_batt_info.batt_capacity = 100;
-    }
+			msm_batt_info.batt_capacity = 100;
+		}
 
-  	/* LGE_CHANGES_S [woonghee.park@lge.com] 2010-02-09, [VS740], LG_FW_BATT_ID_CHECK, LG_FW_BATT_THM*/
-  	msm_batt_info.battery_temp = batt_info_buf.batt_temp * 10;
-  	msm_batt_info.battery_therm = batt_info_buf.batt_therm;	
-  	/* LGE_CHANGES_E [woonghee.park@lge.com]*/
+		/* LGE_CHANGES_S [woonghee.park@lge.com] 2010-02-09, [VS740], LG_FW_BATT_ID_CHECK, LG_FW_BATT_THM*/
+		msm_batt_info.battery_temp = batt_info_buf.batt_temp * 10;
+		msm_batt_info.battery_therm = batt_info_buf.batt_therm;	
+		/* LGE_CHANGES_E [woonghee.park@lge.com]*/
 
 		/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670],
 		 * add extra batt info
 		 */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 		msm_batt_info.chg_current = batt_info_buf.chg_current;
 		msm_batt_info.batt_thrm_state = batt_info_buf.batt_thrm_state;
 #endif
 		/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-05-17 */
-	}
-	else {
+	} else {
 		msm_batt_info.batt_health = POWER_SUPPLY_HEALTH_UNKNOWN;
 		msm_batt_info.batt_status = POWER_SUPPLY_STATUS_UNKNOWN;
 
@@ -1015,14 +973,13 @@ static void msm_batt_update_psy_status(void)
 		/* LGE_CHANGE [dojip.kim@lge.com] 2010-06-03, [LS670]
 		 * display the all info in unkown
 		 */
-		msm_batt_info.battery_temp =  batt_info_buf.batt_temp * 10;
-
+		msm_batt_info.battery_temp = batt_info_buf.batt_temp * 10;
 		msm_batt_info.battery_therm = batt_info_buf.batt_therm;		
-		/* LGE_CHANGES_E [woonghee.park@lge.com] */
+		/* LGE_CHANGES_E [woonghee.park@lge.com]*/
 		/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670],
 		 * add extra batt info
 		 */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 		msm_batt_info.chg_current = batt_info_buf.chg_current;
 		msm_batt_info.batt_thrm_state = batt_info_buf.batt_thrm_state;
 #endif
@@ -1233,7 +1190,6 @@ static ssize_t msm_batt_pif_show(struct device *dev, struct device_attribute *at
 
 	if (pif_value < 0) {
 		pif_value = msm_chg_LG_cable_type();
-		dev_info(dev, "%s : msm_chg_LG_cable_type = %d\n",__func__,pif_value);
 		if (pif_value == LG_FACTORY_CABLE_TYPE ||
 		    pif_value == LG_FACTORY_CABLE_130K_TYPE)
 			pif_value = 1;
@@ -1244,33 +1200,10 @@ static ssize_t msm_batt_pif_show(struct device *dev, struct device_attribute *at
 
 	return sprintf(buf, "%d\n", pif_value);
 }
+
 static DEVICE_ATTR(pif, S_IRUGO, msm_batt_pif_show, NULL);
 #endif
 
-// LGE_CHANGE [dojip.kim@lge.com] 2010-08-14, modem lpm
-#include <mach/lg_comdef.h> /* boolean */
-extern void set_operation_mode(boolean info);
-static ssize_t msm_batt_modem_lpm_store(struct device *dev, struct device_attribute *attr,
-		                 const char *buf, size_t count)
-{
-	int ret = -EINVAL;
-	int online;
-
-	if (sscanf(buf, "%d", &online) != 1) {
-		dev_err(dev, "%s: usage: echo [0/1] > modem_lpm", __func__);
-		return ret;
-	}
-
-	set_operation_mode(online);
-
-	ret = count;
-	return ret;
-}
-
-static DEVICE_ATTR(modem_lpm, 0220, NULL, msm_batt_modem_lpm_store);
-
-// LGE_CHANGE [dojip.kim@lge.com] 2010-08-23, power on status
-#if defined(CONFIG_LGE_GET_POWER_ON_STATUS)
 extern unsigned lge_get_power_on_status(void);
 static ssize_t msm_batt_power_on_status_show(struct device *dev, 
 		struct device_attribute *attr, char *buf)
@@ -1278,59 +1211,61 @@ static ssize_t msm_batt_power_on_status_show(struct device *dev,
 	unsigned power_on_status = 0;
 
 	power_on_status = lge_get_power_on_status();
-	dev_info(dev, "%s : Power On Status (0x%x)\n", __func__, power_on_status);
+	dev_info(dev, "%s : Power On Status (%x)\n", __func__, power_on_status);
 
 	return sprintf(buf, "0x%x\n", power_on_status);
 }
 static DEVICE_ATTR(power_on_status, 0444, msm_batt_power_on_status_show, NULL);
-#endif //CONFIG_LGE_GET_POWER_ON_STATUS
 
-// LGE_CHANGE [dojip.kim@lge.com] 2010-09-01
-extern void remote_set_charging_stat_realtime_update(int info);
-extern void remote_get_charging_stat_realtime_update(int *info);
-static ssize_t msm_batt_stat_realtime_update_store(
-		struct device *dev, struct device_attribute *attr, 
-		const char *buf, size_t count)
+/* LGE_CHANGES_S [jaeho.cho@lge.com] 2010-10-02, charger logo notification to modem */
+#ifdef CONFIG_LGE_CHARGER_LOGO_MODE_NOTI
+static ssize_t chg_logo_read(struct file *fp, char __user *buf,
+				size_t count, loff_t *pos)
+{
+    return 1;
+}
+
+static ssize_t chg_logo_write(struct file *fp, const char __user *buf,
+				 size_t count, loff_t *pos)
 {
 	int ret = -EINVAL;
 	int update;
 
 	if (sscanf(buf, "%d", &update) != 1) {
-		dev_err(dev, "%s: usage: echo [0/1] > stat_realtime_update", __func__);
 		return ret;
 	}
 
-	remote_set_charging_stat_realtime_update(update);
+// set testmode chg mode command to notifiy the target is in the charging mode
+//#ifdef CONFIG_LGE_DIAG_TESTMODE
+	set_first_booting_chg_mode_status(1);
+//#endif
+
+//	remote_set_chg_logo_mode(update);
 
 	ret = count;
 	return ret;
 }
 
-static ssize_t msm_batt_stat_realtime_update_show(
-		struct device *dev, struct device_attribute *attr, char *buf)
-{
-	int update = 0;
+static const struct file_operations chg_logo_fops = {
+	.owner = THIS_MODULE,
+	.read = chg_logo_read,
+	.write = chg_logo_write,
+};
 
-	remote_get_charging_stat_realtime_update(&update);
-	dev_info(dev, "%s : state realtime update (%d)\n", __func__, update);
+static struct miscdevice chg_logo_device = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "chg_logo",
+	.fops = &chg_logo_fops,
+};
 
-	return sprintf(buf, "%d\n", update);
-}
-//LGSI_LS670_FroyoToGB_CTS Issue Merges_Suresh_28May2011
-static DEVICE_ATTR(stat_realtime_update, 0665, msm_batt_stat_realtime_update_show, 
-		msm_batt_stat_realtime_update_store);
+#endif
+/* LGE_CHANGES_S [jaeho.cho@lge.com] 2010-10-02, charger logo notification to modem */
+
 static struct attribute* dev_attrs[] = {
 #if defined(CONFIG_LGE_DETECT_PIF_PATCH)
 	&dev_attr_pif.attr,
 #endif
-// LGE_CHANGE [dojip.kim@lge.com] 2010-08-14, modem lpm
-	&dev_attr_modem_lpm.attr,
-// LGE_CHANGE [dojip.kim@lge.com] 2010-08-23, power on status
-#if defined(CONFIG_LGE_GET_POWER_ON_STATUS)
 	&dev_attr_power_on_status.attr,
-#endif
-// LGE_CHANGE [dojip.kim@lge.com] 2010-09-01
-	&dev_attr_stat_realtime_update.attr,
 	NULL
 };
 static struct attribute_group dev_attr_grp = {
@@ -1662,6 +1597,17 @@ static int __init msm_batt_init(void)
 		msm_batt_cleanup();
 		return rc;
 	}
+	
+/* LGE_CHANGES_S [jaeho.cho@lge.com] 2010-10-02, charger logo notification to modem */
+#ifdef CONFIG_LGE_CHARGER_LOGO_MODE_NOTI
+    rc = misc_register(&chg_logo_device);
+    if (rc)
+    {
+	    printk(KERN_ERR "chg logo device failed to initialize\n");
+		misc_deregister(&chg_logo_device);
+    }
+#endif
+/* LGE_CHANGES_S [jaeho.cho@lge.com] 2010-10-02, charger logo notification to modem */
 
 	return 0;
 }
@@ -1669,6 +1615,12 @@ static int __init msm_batt_init(void)
 static void __exit msm_batt_exit(void)
 {
 	platform_driver_unregister(&msm_batt_driver);
+/* LGE_CHANGES_S [jaeho.cho@lge.com] 2010-10-02, charger logo notification to modem */
+#ifdef CONFIG_LGE_CHARGER_LOGO_MODE_NOTI
+	misc_deregister(&chg_logo_device);
+#endif
+/* LGE_CHANGES_S [jaeho.cho@lge.com] 2010-10-02, charger logo notification to modem */
+
 }
 
 module_init(msm_batt_init);

@@ -52,34 +52,26 @@ enum {
 	LG_FW_A2M_BATT_INFO_GET = LG_FW_RAPI_START + 2,
 	LG_FW_A2M_PSEUDO_BATT_INFO_SET = LG_FW_RAPI_START + 3,
 	LG_FW_MEID_GET = LG_FW_RAPI_START + 4,
-	//LGSI_LS670_Froyo_ToGB_Raghupathy_26Apr2011_Start
-	LG_FW_SET_OPERATION_MODE = LG_FW_RAPI_START + 5,
-	//LGSI_LS670_Froyo_ToGB_Raghupathy_26Apr2011_End
-	/* LGE_CHANGES_S [woonghee.park@lge.com] 2010-05-18, [VS740], 
-	 * LG_FW_CHARGING_TIMER
-	 */
-	LG_FW_SET_CHARGING_TIMER = LG_FW_RAPI_START + 6,
-	LG_FW_GET_CHARGING_TIMER = LG_FW_RAPI_START + 7,
-	/* LGE_CHANGES_E [woonghee.park@lge.com] */
-	/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-29, [LS670] PCB Version */
-	LG_FW_GET_PCB_VERSION = LG_FW_RAPI_START + 8,
-	/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-29, [LS670] LG_FW_RTN_RESET */
-	LG_FW_RAPI_CLIENT_EVENT_SET_RTN_RESET= LG_FW_RAPI_START + 9,
-	/* LGE_CHANGE [dojip.kim@lge.com] 2010-08-09, [LS670] 
-	 * no stop charging even if hot or cold battery 
-	 */
-	LG_FW_RAPI_CLIENT_EVENT_SET_THM_NO_STOP_CHARGING = LG_FW_RAPI_START + 10,
-	/* LGE_CHANGE [dojip.kim@lge.com] 2010-08-9 */
-	//LGSI_LS670_Froyo_ToGB_Raghupathy_26Apr2011_Start
-	LG_FW_A2M_BLOCK_CHARGING_SET = LG_FW_RAPI_START + 11,
+	LG_FW_SET_OPERATIN_MODE = LG_FW_RAPI_START + 5,
+	LG_FW_A2M_BLOCK_CHARGING_SET = LG_FW_RAPI_START + 6,
+	//20100712 myeonggyu.son@lge.com [MS690] hw revision
+	LG_FW_GET_PCB_VERSION = LG_FW_RAPI_START + 7,
+	/*LGE_CHANGES yongman.kwon 2010-09-07[MS690] : firstboot check */
+	LG_FW_SET_BOOT_INFO =	  LG_FW_RAPI_START + 8,
+	/*LGE_CHANGES yongman.kwon 2010-09-07[MS690] : check power mode [START]*/
+	LG_FW_GET_POWER_MODE =  	 LG_FW_RAPI_START + 9,	
+	LG_FW_GET_FLIGHT_MODE =  	 LG_FW_RAPI_START + 10,	
+	/*LGE_CHANGES yongman.kwon 2010-09-07[MS690] : check power mode [END]*/	
+
+	/* LGE_CHANGES yongman.kwon@lge.com [MS690] for check prl version for wifi on/off */
+	//LG_FW_CHECK_PRL_VERSION
+	LG_FW_GET_PRL_VERSION = LG_FW_RAPI_START + 11,
 	/* LGE_CHANGE [james.jang@lge.com] 2010-08-25 */
 	LG_FW_CIQ_EXCEPTION_ERROR_TEST = LG_FW_RAPI_START + 12,
 	/* LGE_CHANGE [dojip.kim@lge.com] 2010-09-01 */
 	LG_FW_SET_CHARGING_STAT_REALTIME_UPDATE = LG_FW_RAPI_START + 13,
 	LG_FW_GET_CHARGING_STAT_REALTIME_UPDATE = LG_FW_RAPI_START + 14,
 	//LGSI_LS670_Froyo_ToGB_Raghupathy_26Apr2011_End
-	/* LGE_CHANGE [dojip.kim@lge.com] 2010-09-12, prl version */
-	LG_FW_GET_PRL_VERSION = LG_FW_RAPI_START + 15,
 	/* LGE_CHANGE [dojip.kim@lge.com] 2010-09-28, ftm boot */
 	LG_FW_SET_FTM_BOOT = LG_FW_RAPI_START + 16,
 	LG_FW_GET_FTM_BOOT = LG_FW_RAPI_START + 17,

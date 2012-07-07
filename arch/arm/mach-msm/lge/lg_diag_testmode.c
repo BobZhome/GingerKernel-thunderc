@@ -33,7 +33,7 @@ extern void set_operation_mode(boolean isOnline);
 extern struct input_dev* get_ats_input_dev(void);
 /* LGE_CHANGE_E [sm.shim@lge.com] 2010-08-13, Testmode merge from VS660 */
 // LGE_CHANGE [dojip.kim@lge.com] 2010-09-28, ftm boot 
-extern void remote_set_ftm_boot(int info);
+//extern void remote_set_ftm_boot(int info);
 extern int boot_info;
 /* ==========================================================================
    ===========================================================================*/
@@ -465,23 +465,21 @@ uint8_t if_condition_is_on_air_plain_mode;
 void* LGF_PowerSaveMode(test_mode_req_type* pReq, DIAG_TEST_MODE_F_rsp_type* pRsp)
 {
 	pRsp->ret_stat_code = TEST_OK_S;
-
+	msleep(20);
 	switch(pReq->sleep_mode){
 		case SLEEP_MODE_ON:
-			LGF_SendKey(KEY_END);
+			/*LGF_CHANGED yongman.kwon@lge.com [MS690] : change key end -> power*/
+			//LGF_SendKey(KEY_END);
+			LGF_SendKey(KEY_POWER);
 			break;
 		case AIR_PLAIN_MODE_ON:
-		// LGE_CHANGE [dojip.kim@lge.com] 2010-09-28, ftm boot 
-		remote_set_ftm_boot(0); // clear flag
+			/*LGF_CHANGED yongman.kwon@lge.com [MS690] : add send key for Testmode*/
+			LGF_SendKey(KEY_POWER);			
 			if_condition_is_on_air_plain_mode = 1;
 			set_operation_mode(FALSE);
 			break;
-	case FTM_BOOT_ON: /* kernel mode */
-		remote_set_ftm_boot(1); // set flag
-		break;
 		default:
 			pRsp->ret_stat_code = TEST_NOT_SUPPORTED_S;
-		break;
 	}
 	return pRsp;
 }

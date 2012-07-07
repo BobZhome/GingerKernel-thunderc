@@ -14,6 +14,7 @@
  */
 
 #include <linux/string.h>
+#include <linux/kernel.h>
 #include <mach/lg_pcb_version.h>
 
 #ifdef CONFIG_LGE_PCB_VERSION  /* LG_FW_PCB_VERSION */
@@ -88,3 +89,21 @@ void lg_set_hw_version_string(char *pcb_version)
 
 #endif /* CONFIG_LGE_PCB_VERSION */
 
+//20100929 yongman.kwon@lge.com [MS690] for check prl version for wifi on/off [START]
+//LG_FW_CHECK_PRL_VERSION
+extern unsigned short lg_get_prl_version(void);
+void lg_set_prl_version_string(char * prl_version)
+{
+	sprintf(prl_version, "%d", lg_get_prl_version());
+}
+//20100929 yongman.kwon@lge.com [MS690] for check prl version for wifi on/off [END]
+
+//20101130 yongman.kwon@lge.com [MS690] support HITACHI & SHARP [START]
+#if defined(CONFIG_FB_MSM_MDDI_NOVATEK_HITACHI_HVGA)
+extern int g_mddi_lcd_probe;
+void lg_get_lcd_version_string(char * lcd_version)
+{
+	sprintf(lcd_version, "%d", g_mddi_lcd_probe);
+}
+#endif
+//20101130 yongman.kwon@lge.com [MS690] support HITACHI & SHARP [END]

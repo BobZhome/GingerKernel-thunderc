@@ -370,40 +370,46 @@ static struct sysdev_attribute pcb_ver_file[] = {
 	_SYSDEV_ATTR(hw_version, 0444, lg_show_hw_version, NULL),
 };
 #endif /* CONFIG_LGE_PCB_VERSION */
+//20100712 myeonggyu.son@lge.com [MS690] hw revision [END]
 
-/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-09-12, prl version */
-extern void remote_get_prl_version(int *info);
-static ssize_t
-lg_show_prl_version(struct sys_device *dev,
+//20100929 yongman.kwon@lge.com [MS690] for check prl version for wifi on/off [START]
+//LG_FW_CHECK_PRL_VERSION
+static char prl_version[10] = "Unknown";
+static ssize_t lg_show_prl_version(struct sys_device *dev,
 		struct sysdev_attribute *attr,
 		char *buf)
 {
-	int prl;
-
-	remote_get_prl_version(&prl);
-	return snprintf(buf, PAGE_SIZE, "%d\n", prl);
+	if (!strncmp(prl_version, "Unknown", 7)) {
+		pr_info("%s: get pcb version using rpc\n", __func__);
+		lg_set_prl_version_string((char *)prl_version);
+	}
+	return snprintf(buf, PAGE_SIZE, "%s\n", prl_version);
 }
 static struct sysdev_attribute prl_ver_file[] = {
 	_SYSDEV_ATTR(prl_version, 0444, lg_show_prl_version, NULL),
 };
-/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-09-12 */
 
-/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-09-28, ftm boot */
-extern void remote_get_ftm_boot(int *info);
-static ssize_t
-lg_show_ftm_boot(struct sys_device *dev,
+//20100929 yongman.kwon@lge.com [MS690] for check prl version for wifi on/off [START]
+
+
+//20101130 yongman.kwon@lge.com [MS690] support HITACHI & SHARP [START]
+#if defined(CONFIG_FB_MSM_MDDI_NOVATEK_HITACHI_HVGA)
+static char lcd_version[10] = "Unknown";
+static ssize_t lg_show_lcd_version(struct sys_device *dev,
 		struct sysdev_attribute *attr,
 		char *buf)
 {
-	int ftm;
-
-	remote_get_ftm_boot(&ftm);
-	return snprintf(buf, PAGE_SIZE, "%d\n", ftm);
+	if (!strncmp(lcd_version, "Unknown", 7)) {
+		pr_info("%s: get lcd version using rpc\n", __func__);
+		lg_get_lcd_version_string((char *)lcd_version);
+	}
+	return snprintf(buf, PAGE_SIZE, "%s\n", lcd_version);
 }
-static struct sysdev_attribute ftm_boot_file[] = {
-	_SYSDEV_ATTR(ftm_boot, 0444, lg_show_ftm_boot, NULL),
+static struct sysdev_attribute lcd_ver_file[] = {
+	_SYSDEV_ATTR(lcd_version, 0444, lg_show_lcd_version, NULL),
 };
-/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-09-28 */
+#endif
+//20101130 yongman.kwon@lge.com [MS690] support HITACHI & SHARP [END]
 
 static ssize_t
 socinfo_show_accessory_chip(struct sys_device *dev,
@@ -473,7 +479,7 @@ static int __init socinfo_create_files(struct sys_device *dev,
 	return 0;
 }
 
-static int __init socinfo_init_sysdev(void)
+static void __init socinfo_init_sysdev(void)
 {
 	int err;
 
@@ -481,48 +487,53 @@ static int __init socinfo_init_sysdev(void)
 	if (err) {
 		pr_err("%s: sysdev_class_register fail (%d)\n",
 		       __func__, err);
-		return err;
+		return;
 	}
 	err = sysdev_register(&soc_sys_device);
 	if (err) {
 		pr_err("%s: sysdev_register fail (%d)\n",
 		       __func__, err);
-		return err;
+		return;
 	}
-	/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-09-12, prl version */
-	socinfo_create_files(&soc_sys_device, prl_ver_file,
-				ARRAY_SIZE(prl_ver_file));
-	/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-09-12 */
-	/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-09-28, ftm boot */
-	socinfo_create_files(&soc_sys_device, ftm_boot_file,
-				ARRAY_SIZE(ftm_boot_file));
-	/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-09-28 */
-
 #ifdef CONFIG_LGE_PCB_VERSION  /* LG_FW_PCB_VERSION */
 	socinfo_create_files(&soc_sys_device, pcb_ver_file,
 				ARRAY_SIZE(pcb_ver_file));
 #endif
+
+//20100929 yongman.kwon@lge.com [MS690] for check prl version for wifi on/off [START]
+//LG_FW_CHECK_PRL_VERSION
+socinfo_create_files(&soc_sys_device, prl_ver_file,
+			ARRAY_SIZE(prl_ver_file));
+//20100929 yongman.kwon@lge.com [MS690] for check prl version for wifi on/off [END]
+
+
+//20101130 yongman.kwon@lge.com [MS690] support HITACHI & SHARP [START]
+#if defined(CONFIG_FB_MSM_MDDI_NOVATEK_HITACHI_HVGA)
+socinfo_create_files(&soc_sys_device, lcd_ver_file,
+			ARRAY_SIZE(lcd_ver_file));
+#endif
+//20101130 yongman.kwon@lge.com [MS690] support HITACHI & SHARP [END]
 	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
 				ARRAY_SIZE(socinfo_v1_files));
 	if (socinfo->v1.format < 2)
-		return err;
+		return;
 	socinfo_create_files(&soc_sys_device, socinfo_v2_files,
 				ARRAY_SIZE(socinfo_v2_files));
 
 	if (socinfo->v1.format < 3)
-		return err;
+		return;
 
 	socinfo_create_files(&soc_sys_device, socinfo_v3_files,
 				ARRAY_SIZE(socinfo_v3_files));
 
 	if (socinfo->v1.format < 4)
-		return err;
+		return;
 
 	socinfo_create_files(&soc_sys_device, socinfo_v4_files,
 				ARRAY_SIZE(socinfo_v4_files));
 
 	if (socinfo->v1.format < 5)
-		return err;
+		return;
 
 	return socinfo_create_files(&soc_sys_device, socinfo_v5_files,
 				ARRAY_SIZE(socinfo_v5_files));

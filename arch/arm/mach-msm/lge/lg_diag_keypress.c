@@ -160,27 +160,27 @@ PACK (void *)LGF_KeyPress (
 	    /* LG_FW 2010.02.24 khlee - UTS TEST needs key to delete call log*/
   	case 0x2060 :
 		// touch Dialer start
-		Send_Touch(20,478);
+		//Send_Touch(20,478);
 		break;
 	case 0x2061:
     		//touch call log
-      		Send_Touch(100,50);
+      		//Send_Touch(100,50);
 		break;
 	case 0x2062:
     		//touch Clear Call Logs icon
-      		Send_Touch(265,470);
+      		//Send_Touch(265,470);
 		break;
 	case 0x2063:
     		//ok  icon
-      		Send_Touch(85,315);
+      		//Send_Touch(85,315);
 		break;
 	case 0x2064:
 		//power off  button  icon
-		Send_Touch(150,350);
+		//Send_Touch(150,350);
 		break;
 	case 0x2065:
 		//power off ok button  icon
-		Send_Touch(75,315);
+		//Send_Touch(75,315);
 		break;
 	case 0x40 :
 	    /* LG_FW 2010.02.24 khlee - UTS TEST needs send key to call in idle screen*/

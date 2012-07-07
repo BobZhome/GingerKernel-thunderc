@@ -65,11 +65,16 @@ struct msm_rpc_client *client;
 // LGE_CHANGE [dojip.kim@lge.com] 2010-08-12, initial value 
 static int old_cable_type = -1;
 //LG_CHANGE [sinjo.mattappallil] 2011-10-12 , charger detection issue [END]
+
+/*LGE_CHANGES yongman.kwon 2010-09-07[MS690] : firstboot check */
+extern boot_info;
+
 int LG_rapi_init(void)
 {
 	client = oem_rapi_client_init();
 	if (IS_ERR(client)) {
 		pr_err("%s: couldn't open oem rapi client\n", __func__);
+		printk("myeonggyu - %s: couldn't open oem rapi client\n", __func__);
 		return PTR_ERR(client);
 	}
 	open_count++;
@@ -192,8 +197,8 @@ void set_operation_mode(boolean info)
 	struct oem_rapi_client_streaming_func_ret ret;
 
 	Open_check();
+
 //LGSI_LS670_Froyo_ToGB_Raghupathy_26Apr2011_Start
-	arg.event = LG_FW_SET_OPERATION_MODE;
 	//arg.event = LG_FW_SET_OPERATIN_MODE;
 //LGSI_LS670_Froyo_ToGB_Raghupathy_26Apr2011_End
 	arg.cb_func = NULL;
@@ -364,153 +369,173 @@ void msm_get_MEID_type(char* sMeid)
 		kfree(ret.out_len);
 
 }
-
 /* LGE_CHANGE [dojip.kim@lge.com] 2010-05-21, from VS740 */
-#ifdef CONFIG_MACH_MSM7X27_THUNDERC
-void set_charging_timer(int info)
-{
-	struct oem_rapi_client_streaming_func_arg arg;
-	struct oem_rapi_client_streaming_func_ret ret;
-	int ret_val;
 
-	Open_check();
-
-	arg.event = LG_FW_SET_CHARGING_TIMER;
-	arg.cb_func = NULL;
-	arg.handle = (void *)0;
-	arg.in_len = sizeof(int);
-	arg.input = (char *)&info;
-	arg.out_len_valid = 0;
-	arg.output_valid = 0;
-	arg.output_size = 0;	//alloc memory for response
-
-	ret.output = NULL;
-	ret.out_len = NULL;
-
-	ret_val = oem_rapi_client_streaming_function(client, &arg, &ret);
-
-	/* LGE_CHAGNE [dojip.kim@lge.com] 2010-06-21, free the allocated mem */
-	if (ret.output)
-		kfree(ret.output);
-	if (ret.out_len)
-		kfree(ret.out_len);
-
-}
-EXPORT_SYMBOL(set_charging_timer);
-
-void get_charging_timer(int *info)
-{
-	struct oem_rapi_client_streaming_func_arg arg;
-	struct oem_rapi_client_streaming_func_ret ret;
-	int ret_val;
-	int resp_buf;
-
-	Open_check();
-
-	arg.event = LG_FW_GET_CHARGING_TIMER;
-	arg.cb_func = NULL;
-	arg.handle = (void *)0;
-	arg.in_len = 0;
-	arg.input = NULL;
-	arg.out_len_valid = 1;
-	arg.output_valid = 1;
-	arg.output_size = sizeof(int);
-
-	ret.output = NULL;
-	ret.out_len = NULL;
-
-	ret_val = oem_rapi_client_streaming_function(client, &arg, &ret);
-	if (ret_val == 0) {
-		/* LGE_CHAGNE [dojip.kim@lge.com] 2010-06-21, memcpy */
-		memcpy(&resp_buf, ret.output, *ret.out_len);
-
-		*info = GET_INT32(&resp_buf);
-	} else {
-		*info = 1;	//default value
-	}
-
-	/* LGE_CHAGNE [dojip.kim@lge.com] 2010-06-21, free the allocated mem */
-	if (ret.output)
-		kfree(ret.output);
-	if (ret.out_len)
-		kfree(ret.out_len);
-
-}
-
-EXPORT_SYMBOL(get_charging_timer);
-#endif
+//20100712 myeonggyu.son@lge.com [MS690] hw revision [START]
 /* LGE_CHANGE [dojip.kim@lge.com] 2010-05-29, pcb version from LS680*/
 #ifdef  CONFIG_LGE_PCB_VERSION
 int lg_get_hw_version(void)
 {
 	struct oem_rapi_client_streaming_func_arg arg;
 	struct oem_rapi_client_streaming_func_ret ret;
-	int pcb_ver;
+	byte pcb_ver = 0xFF;
+	unsigned int out_len = 0xFFFFFFFF;
 
 	Open_check();
 
 	arg.event = LG_FW_GET_PCB_VERSION;
 	arg.cb_func = NULL;
-	arg.handle = (void *)0;
+	arg.handle = (void*) 0;
 	arg.in_len = 0;
 	arg.input = NULL;
 	arg.out_len_valid = 1;
 	arg.output_valid = 1;
-	arg.output_size = 4;
+	arg.output_size = 1;
 
 	ret.output = NULL;
 	ret.out_len = NULL;
 
 	oem_rapi_client_streaming_function(client, &arg, &ret);
-	memcpy(&pcb_ver, ret.output, *ret.out_len);
 
-	/* LGE_CHAGNE [dojip.kim@lge.com] 2010-06-21, free the allocated mem */
-	if (ret.output)
-		kfree(ret.output);
-	if (ret.out_len)
-		kfree(ret.out_len);
+	pcb_ver = *ret.output;
+	out_len = *ret.out_len;
 
-	return GET_INT32(&pcb_ver);
+	return pcb_ver;
 }
-
 EXPORT_SYMBOL(lg_get_hw_version);
 #endif /* CONFIG_LGE_PCB_VERSION */
+//20100712 myeonggyu.son@lge.com [MS690] hw revision [END]
 
-/* LGE_CHANGE [dojip.kim@lge.com] 2010-08-09, [LS670]
- * no stop charing even if hot or cold battery
- */
-#ifdef CONFIG_LGE_THERM_NO_STOP_CHARGING
-void set_charging_therm_no_stop_charging(int info)
+//20100914 yongman.kwon@lge.com [MS690] : firstboot check [START]*/
+void lg_set_boot_info(void)
 {
 	struct oem_rapi_client_streaming_func_arg arg;
 	struct oem_rapi_client_streaming_func_ret ret;
-	int ret_val;
+
+	Open_check();
+	arg.event = LG_FW_SET_BOOT_INFO;
+	arg.cb_func = NULL;
+	arg.handle = (void*) 0;
+	arg.in_len = sizeof(int);
+	arg.input = (char*) &boot_info;
+	arg.out_len_valid = 0;
+	arg.output_valid = 0;
+	arg.output_size = 0;
+
+	ret.output = (char*)NULL;
+	ret.out_len = 0;
+
+	oem_rapi_client_streaming_function(client,&arg,&ret);
+	return;
+
+}
+EXPORT_SYMBOL(lg_set_boot_info);
+//20100914 yongman.kwon@lge.com [MS690] : firstboot check [START]*/
+
+//20100914 yongman.kwon@lge.com [MS690] : power check mode [START]
+int lg_get_power_check_mode(void)
+{
+	struct oem_rapi_client_streaming_func_arg arg;
+	struct oem_rapi_client_streaming_func_ret ret;
+	byte power_mode = 0xFF;
+	unsigned int out_len = 0xFFFFFFFF;
 
 	Open_check();
 
-	arg.event = LG_FW_RAPI_CLIENT_EVENT_SET_THM_NO_STOP_CHARGING;
+	arg.event = LG_FW_GET_POWER_MODE;
 	arg.cb_func = NULL;
-	arg.handle = (void *)0;
-	arg.in_len = sizeof(int);
-	arg.input = (char *)&info;
-	arg.out_len_valid = 0;
-	arg.output_valid = 0;
-	arg.output_size = 0;	//alloc memory for response
+	arg.handle = (void*) 0;
+	arg.in_len = 0;
+	arg.input = NULL;
+	arg.out_len_valid = 1;
+	arg.output_valid = 1;
+	arg.output_size = 1;
 
 	ret.output = NULL;
 	ret.out_len = NULL;
 
-	ret_val = oem_rapi_client_streaming_function(client, &arg, &ret);
+	oem_rapi_client_streaming_function(client, &arg, &ret);
 
-	if (ret.output)
-		kfree(ret.output);
-	if (ret.out_len)
-		kfree(ret.out_len);
+	power_mode = *ret.output;
+	out_len = *ret.out_len;
 
+	return power_mode;
 }
+EXPORT_SYMBOL(lg_get_power_check_mode);
 
-EXPORT_SYMBOL(set_charging_therm_no_stop_charging);
-#endif
+int lg_get_flight_mode(void)
+{
+	struct oem_rapi_client_streaming_func_arg arg;
+	struct oem_rapi_client_streaming_func_ret ret;
+	byte flight_mode = 0xFF;
+	unsigned int out_len = 0xFFFFFFFF;
+
+	Open_check();
+
+	arg.event = LG_FW_GET_FLIGHT_MODE;
+	arg.cb_func = NULL;
+	arg.handle = (void*) 0;
+	arg.in_len = 0;
+	arg.input = NULL;
+	arg.out_len_valid = 1;
+	arg.output_valid = 1;
+	arg.output_size = 1;
+
+	ret.output = NULL;
+	ret.out_len = NULL;
+
+	oem_rapi_client_streaming_function(client, &arg, &ret);
+
+	flight_mode = *ret.output;
+	out_len = *ret.out_len;
+
+	return flight_mode;
+}
+EXPORT_SYMBOL(lg_get_flight_mode);
+//20100914 yongman.kwon@lge.com [MS690] power check mode [END]
+
+//20100929 yongman.kwon@lge.com [MS690] for check prl version for wifi on/off [START]
+//LG_FW_CHECK_PRL_VERSION
+word lg_get_prl_version(void)
+{
+	struct oem_rapi_client_streaming_func_arg arg;
+	struct oem_rapi_client_streaming_func_ret ret;
+	word prl_version = 0xFFFF;
+	unsigned int out_len = 0xFFFFFFFF;
+
+	Open_check();
+
+	arg.event = LG_FW_GET_PRL_VERSION;
+	arg.cb_func = NULL;
+	arg.handle = (void*) 0;
+	arg.in_len = 0;
+	arg.input = NULL;
+	arg.out_len_valid = 1;
+	arg.output_valid = 1;
+	arg.output_size = 2;
+
+	ret.output = NULL;
+	ret.out_len = NULL;
+
+	oem_rapi_client_streaming_function(client, &arg, &ret);
+
+	printk("output : %d\n", *ret.output);
+	
+	memcpy(&prl_version, ret.output, 2);
+
+	printk("prl_version : %d\n", prl_version);
+	
+	out_len = *ret.out_len;
+
+	return prl_version;
+}
+EXPORT_SYMBOL(lg_get_prl_version);
+//20100929 yongman.kwon@lge.com [MS690] for check prl version for wifi on/off [END]
+
+/* LGE_CHANGE [dojip.kim@lge.com] 2010-08-09, [LS670]
+ * no stop charing even if hot or cold battery
+ */
+
 void remote_set_charging_stat_realtime_update(int info)
 {
 	struct oem_rapi_client_streaming_func_arg arg;
@@ -580,42 +605,7 @@ void remote_get_charging_stat_realtime_update(int *info)
 	return;
 }
 EXPORT_SYMBOL(remote_get_charging_stat_realtime_update);
-// LGE_CHANGE [dojip.kim@lge.com] 2010-09-12, prl version
-void remote_get_prl_version(int *info)
-{
-	struct oem_rapi_client_streaming_func_arg arg;
-	struct oem_rapi_client_streaming_func_ret ret;
-	int ret_val;
-	int resp_buf;
 
-	Open_check();
-
-	arg.event = LG_FW_GET_PRL_VERSION;
-	arg.cb_func = NULL;
-	arg.handle = (void *)0;
-	arg.in_len = 0;
-	arg.input = NULL;
-	arg.out_len_valid = 1;
-	arg.output_valid = 1;
-	arg.output_size = sizeof(int);
-
-	ret.output = NULL;
-	ret.out_len = NULL;
-
-	ret_val = oem_rapi_client_streaming_function(client, &arg, &ret);
-	if (ret_val == 0) {
-		memcpy(&resp_buf, ret.output, *ret.out_len);
-		*info = GET_INT32(&resp_buf);
-	} else {
-		*info = 0;	//default value
-	}
-
-	if (ret.output)
-		kfree(ret.output);
-	if (ret.out_len)
-		kfree(ret.out_len);
-}
-EXPORT_SYMBOL(remote_get_prl_version);
 // LGE_CHANGE [dojip.kim@lge.com] 2010-09-28, FTM boot
 void remote_set_ftm_boot(int info)
 {
