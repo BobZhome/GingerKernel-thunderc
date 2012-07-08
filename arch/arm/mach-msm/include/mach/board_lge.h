@@ -338,6 +338,20 @@ int lge_gpio_switch_pass_event(char *sdev_name, int state);
 unsigned lge_get_pif_info(void);
 unsigned lge_get_lpm_info(void);
 
+unsigned lge_get_batt_volt(void);
+unsigned lge_get_chg_therm(void);
+unsigned lge_get_pcb_version(void);
+unsigned lge_get_chg_curr_volt(void);
+unsigned lge_get_batt_therm(void);
+unsigned lge_get_batt_volt_raw(void);
+#ifdef CONFIG_MACH_MSM7X27_GELATO
+unsigned lge_get_chg_stat_reg(void);
+unsigned lge_get_chg_en_reg(void);
+unsigned lge_set_elt_test(void);
+unsigned lge_clear_elt_test(void);
+#endif
+unsigned lge_get_nv_qem(void);
+
 #define CAMERA_POWER_ON				0
 #define CAMERA_POWER_OFF			1
 int camera_status(void);

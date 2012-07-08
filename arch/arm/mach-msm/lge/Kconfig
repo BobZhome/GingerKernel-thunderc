@@ -330,8 +330,16 @@ config LGE_SUSPEND_HIGH_PRIO_PATCH
 	  But, sometimes "suspend" kthread can't be scheduled in 5~6 second. 
 	  This causes black screen in spite of pushing power button.
 	  For prevent this, raise scheduling policy of "suspend" kthread to SCHED_FIFO when
-	  entering early suspend state, and lower to SCHED_NORMAL when escaping late resume 
+	  entering early suspend state, and lower to SCHED_NORMAL when escaping late resume
 	  state
+
+config LGE_FACTORY_PATCH
+	bool "LGE workaround patch for factory process"
+	default n
+	help
+	  This patch is added for factory process in PV event
+	  This supports Calibration process and user factory reset
+
 endmenu
 
 endmenu
