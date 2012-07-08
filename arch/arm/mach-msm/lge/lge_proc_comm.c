@@ -122,7 +122,6 @@ int lge_set_sleep_status(int status)
 EXPORT_SYMBOL(lge_set_sleep_status);
 
 
-#endif
 unsigned lge_get_nv_qem(void)
 {
 	int err;
@@ -139,4 +138,4 @@ unsigned lge_get_nv_qem(void)
 	return ret;
 }
 EXPORT_SYMBOL(lge_get_nv_qem);
-#endif
+
