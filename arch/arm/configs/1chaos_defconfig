@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.35.10
-# Sun Jul 8 19:10:28 2012
+# Sun Jul 9 20:18:53 2012
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -593,6 +593,7 @@ CONFIG_FB_EARLYSUSPEND=y
 # CONFIG_APM_EMULATION is not set
 # CONFIG_PM_RUNTIME is not set
 CONFIG_PM_OPS=y
+CONFIG_PM_OPP=y
 CONFIG_ARCH_SUSPEND_POSSIBLE=y
 CONFIG_NET=y
 CONFIG_COMPAT_NET_DEV_OPS=y
