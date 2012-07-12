@@ -374,9 +374,8 @@ enum mac80211_tx_control_flags {
 	IEEE80211_TX_CTL_STBC			= BIT(23) | BIT(24),
 	IEEE80211_TX_CTL_TX_OFFCHAN		= BIT(25),
 	IEEE80211_TX_INTFL_TKIP_MIC_FAILURE	= BIT(26),
-};
-
 #define IEEE80211_TX_CTL_STBC_SHIFT		23
+};
 
 /*
  * This definition is used as a mask to clear all temporary flags, which are
