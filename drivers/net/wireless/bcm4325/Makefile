@@ -54,6 +54,7 @@ EXTRA_CFLAGS = \
 	-DBCMPLATFORM_BUS \
 	-DSDIO_ISR_THREAD \
 	-Wall -Wstrict-prototypes \
+	-Wno-array-bounds \
 	-I$(SRCROOT) \
 	-I$(SRCROOT)/include \
 	-I$(SRCROOT)/shared \
