@@ -110,12 +110,12 @@ struct display_table {
 #define REGFLAG_END_OF_TABLE      0xFFFF   // END OF REGISTERS MARKER
 
 static struct display_table mddi_novatek_position_table[] = {
-	// set horizontal address 
+	// set horizontal address
 	{0x2a00, 1, {0x0000}}, // XSA
 	{0x2a01, 1, {0x0000}}, // XSA
 	{0x2a02, 1, {0x0000}}, // XEA
 	{0x2a03, 1, {0x013f}}, // XEA, 320-1
-	// set vertical address 
+	// set vertical address
 	{0x2b00, 1, {0x0000}}, // YSA
 	{0x2b01, 1, {0x0000}}, // YSA
 	{0x2b02, 1, {0x0000}}, // YEA
@@ -230,7 +230,7 @@ static struct display_table mddi_novatek_initialize[] = {
 	{0xA380, 1, {0x00F8}}, // Set LTPS timing
 	{0xA480, 1, {0x003F}}, // Set LTPS timing
 	{0xA680, 1, {0x0008}}, // Set LTPS timing
-	//{0x3600, 1, {0x0008}}, // Set RGB	
+	//{0x3600, 1, {0x0008}}, // Set RGB
 	#if defined(GAMMA_CURRENT) /* LGE_CHANGE [james.jang@lge.com] 2010-07-15, Gamma setting */
 	{0x2880, 1, {0x0009}}, // Set Gamma R
 	{0x2980, 1, {0x001E}}, // Set Gamma R
@@ -996,7 +996,7 @@ extern int ts_set_vreg(unsigned char onoff);
 static void mddi_novatek_lcd_vsync_detected(boolean detected)
 {
 	/* static timetick_type start_time = 0; */
-#if 0 
+#if 0
 	static struct timeval start_time;
 	static boolean first_time = TRUE;
 	/* unit32 mdp_cnt_val = 0; */
@@ -1094,7 +1094,7 @@ static int mddi_novatek_lcd_on(struct platform_device *pdev)
 
 	/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-11, from mddi_hitachi_hvga.c */
 	/* LGE_CHANGE
-	 * Define new structure named 'msm_panel_hitachi_pdata' 
+	 * Define new structure named 'msm_panel_hitachi_pdata'
 	 * to use LCD initialization Flag (.initialized).
 	 * 2010-04-21, minjong.gong@lge.com
 	 */
@@ -1108,7 +1108,7 @@ static int mddi_novatek_lcd_on(struct platform_device *pdev)
 #endif
 
 	// LCD HW Reset
-	mddi_novatek_lcd_panel_poweron();	
+	mddi_novatek_lcd_panel_poweron();
 	display_table(mddi_novatek_initialize, sizeof(mddi_novatek_initialize)/sizeof(struct display_table));
 	//LGSI_CHANGE[pranav.s]
 	//display_table(mddi_novatek_display_on, sizeof(mddi_novatek_display_on) / sizeof(struct display_table));
@@ -1131,11 +1131,11 @@ ssize_t mddi_novatek_lcd_show_onoff(struct device *dev, struct device_attribute 
 	return 0;
 }
 
-ssize_t mddi_novatek_lcd_store_onoff(struct device *dev, struct device_attribute *attr, 
+ssize_t mddi_novatek_lcd_store_onoff(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
 	int onoff;
-	struct platform_device *pdev = to_platform_device(dev); 
+	struct platform_device *pdev = to_platform_device(dev);
 
 	sscanf(buf, "%d", &onoff);
 
@@ -1217,7 +1217,7 @@ static int mddi_novatek_lcd_init(void)
 
 /* LGE_CHANGE [james.jang@lge.com] 2010-08-28, probe LCD */
 #if defined(CONFIG_FB_MSM_MDDI_NOVATEK_HITACHI_HVGA)
-	gpio_tlmm_config(GPIO_CFG(101, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), 
+	gpio_tlmm_config(GPIO_CFG(101, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
 			  GPIO_CFG_ENABLE);
 	gpio_direction_input(101);
 //	gpio_*configure(101, GPIOF_CFG_INPUT);

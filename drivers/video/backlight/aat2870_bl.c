@@ -24,6 +24,7 @@
 #include <linux/fb.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#include <linux/mutex.h>
 #include <mach/board_lge.h>
 
 #define MODULE_NAME  "aat2870bl"

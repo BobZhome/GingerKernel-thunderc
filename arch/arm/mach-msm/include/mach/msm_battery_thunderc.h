@@ -39,7 +39,7 @@ struct batt_info {
 	/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670]
 	 * add extra batt info (from LS680)
 	 */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 	u32 chg_current;
 	u32 batt_thrm_state;
 #endif
@@ -69,7 +69,7 @@ enum {
 	/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-05-17, [LS670],
 	 * add extra batt info (from LS680)
 	 */
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
+#if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 	POWER_SUPPLY_PROP_BATTERY_THRM_STATE,
 	/* LGE_CHANGE [dojip.kim@lge.com] 2010-08-09 */
 #if defined(CONFIG_LGE_THERM_NO_STOP_CHARGING)
