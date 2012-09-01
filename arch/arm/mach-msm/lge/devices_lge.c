@@ -39,7 +39,7 @@
 #endif
 #ifdef CONFIG_USB_FUNCTION
 #include <linux/usb/mass_storage_function.h>
-#include <linux/usb/android_composite.h>
+//#include <linux/usb/android_composite.h>
 #endif
 #ifdef CONFIG_USB_ANDROID
 #include <linux/usb/android_composite.h>
@@ -750,7 +750,7 @@ __setup("androidboot.serialno=", board_serialno_setup);
 #endif
 
 #ifdef CONFIG_USB_FUNCTION
-__WEAK static struct usb_function_map usb_functions_map[] = {
+__WEAK struct usb_function_map usb_functions_map[] = {
 	{"diag", 0},
 	{"adb", 1},
 	{"modem", 2},
@@ -761,7 +761,7 @@ __WEAK static struct usb_function_map usb_functions_map[] = {
 };
 
 /* dynamic composition */
-__WEAK static struct usb_composition usb_func_composition[] = {
+__WEAK struct usb_composition usb_func_composition[] = {
 	{
 		.product_id         = 0x9012,
 		.functions	    = 0x5, /* 0101 */

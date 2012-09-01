@@ -22,6 +22,7 @@
 #include <linux/gpio.h>
 #include <linux/io.h>
 #include <asm/mach/mmc.h>
+#include <asm/mach-types.h>
 #include <mach/vreg.h>
 #include <mach/mpp.h>
 #include <mach/board.h>

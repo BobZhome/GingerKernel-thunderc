@@ -2227,16 +2227,11 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 		break;
 
 	case MSM_CAM_IOCTL_AXI_CONFIG:
-	case MSM_CAM_IOCTL_AXI_VPE_CONFIG:
 		rc = msm_axi_config(pmsm->sync, argp);
 		break;
 
 	case MSM_CAM_IOCTL_SET_CROP:
 		rc = msm_set_crop(pmsm->sync, argp);
-		break;
-
-	case MSM_CAM_IOCTL_SET_FD_ROI:
-		rc = msm_set_fd_roi(pmsm->sync, argp);
 		break;
 
 	case MSM_CAM_IOCTL_PICT_PP:
@@ -2292,18 +2287,27 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 #endif
 /* LGE_CHANGE_E [youngki.an@lge.com] 2010-05-18 */
 
-	case MSM_CAM_IOCTL_STROBE_FLASH_CFG: {
-		uint32_t flash_type;
-		if (copy_from_user(&flash_type, argp, sizeof(flash_type))) {
-			pr_err("msm_strobe_flash_init failed");
-			ERR_COPY_FROM_USER();
-			rc = -EFAULT;
-		} else {
-			CDBG("msm_strobe_flash_init enter");
-			rc = msm_strobe_flash_init(pmsm->sync, flash_type);
+#if defined (CONFIG_LGE_CAMERA_HIDDEN_MENU_TEST_PATCH)
+	/* LGE_CHANGES_S [mina@lge.com] 2009-12-24, [VS740] for hidden test menu */
+	case MSM_CAM_IOCTL_SENSOR_ALWAYS_ON_TEST:
+		{
+			uint32_t sensor_mode;
+			printk("MSM_CAM_IOCTL_SENSOR_ALWAYSON_TEST\n");
+			if(copy_from_user(&sensor_mode,argp, sizeof(sensor_mode))) {
+				ERR_COPY_FROM_USER();
+				rc = -EFAULT;
+			} else {
+				printk("MSM_CAM_IOCTL_SENSOR_ALWAYSON_TEST:%d\n", sensor_mode);
+				if(sensor_mode ==1)
+					sensorAlwaysOnTest = true;
+				else
+					sensorAlwaysOnTest = false;
+				rc = 0;
+			}
+			
 		}
 		break;
-	}
+#endif
 
 	case MSM_CAM_IOCTL_STROBE_FLASH_RELEASE:
 		if (pmsm->sync->sdata->strobe_flash_data) {
@@ -2324,22 +2328,15 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 				flash_recharge_duration);
 		break;
 	}
-/* FIXME : block for compile temporaraily - taehung.kim@lge.com */
-	#if 0
+
 	case MSM_CAM_IOCTL_FLASH_CTRL: {
 		struct flash_ctrl_data flash_info;
 		if (copy_from_user(&flash_info, argp, sizeof(flash_info))) {
 			ERR_COPY_FROM_USER();
 			rc = -EFAULT;
 		} else
-			rc = msm_flash_ctrl(pmsm->sync->sdata, &flash_info);
-
 		break;
 	}
-	#endif
-	case MSM_CAM_IOCTL_ERROR_CONFIG:
-		rc = msm_error_config(pmsm->sync, argp);
-		break;
 
 	case MSM_CAM_IOCTL_ABORT_CAPTURE: {
 		unsigned long flags = 0;
@@ -3346,6 +3343,55 @@ static int msm_device_init(struct msm_cam_device *pmsm,
 	return rc;
 }
 
+#if defined (CONFIG_LGE_CAMERA_HIDDEN_MENU_TEST_PATCH)
+/* LGE_CHANGES_S [cis@lge.com] 2010-01-11, [VS740] camera mclk,pclk hidden test menu */
+static int msm_camera_mclk_idx=0, msm_camera_pclk_idx=0;
+
+static ssize_t msm_camera_mclk_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	CDBG("%s: setting camera node \n", __func__);
+	return 1;
+}
+
+static ssize_t msm_camera_mclk_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+	sscanf(buf, "%d", &msm_camera_mclk_idx);
+
+	CDBG("%s: setting camera node m %d   p %d\n", __func__, msm_camera_mclk_idx, msm_camera_pclk_idx);
+	return 1;
+}
+
+static ssize_t msm_camera_pclk_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	CDBG("%s: setting camera node \n", __func__);
+	return 1;
+}
+
+static ssize_t msm_camera_pclk_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+	sscanf(buf, "%d", &msm_camera_pclk_idx);
+
+	CDBG("%s: setting camera node %d\n", __func__, msm_camera_pclk_idx);
+	return 1;
+}
+
+int msm_camera_mclk_idx_value(void)
+{
+	return msm_camera_mclk_idx;
+}
+
+ int msm_camera_pclk_idx_value(void)
+{
+	return msm_camera_pclk_idx;
+}
+
+EXPORT_SYMBOL(msm_camera_mclk_idx_value);
+EXPORT_SYMBOL(msm_camera_pclk_idx_value);
+
+static DEVICE_ATTR(msm_camera_mclk, S_IRUGO | S_IWUGO, msm_camera_mclk_show, msm_camera_mclk_store);
+static DEVICE_ATTR(msm_camera_pclk, S_IRUGO | S_IWUGO, msm_camera_pclk_show, msm_camera_pclk_store);
+#endif
+
 int msm_camera_drv_start(struct platform_device *dev,
 		int (*sensor_probe)(const struct msm_camera_sensor_info *,
 			struct msm_sensor_ctrl *))
@@ -3377,6 +3423,19 @@ int msm_camera_drv_start(struct platform_device *dev,
 				__func__, rc);
 			return rc;
 		}
+#if defined (CONFIG_LGE_CAMERA_HIDDEN_MENU_TEST_PATCH)
+/* LGE_CHANGES_S [cis@lge.com] 2010-01-11, [VS740] camera mclk,pclk hidden test menu */
+		{
+			int err;
+			err = device_create_file(&dev->dev, &dev_attr_msm_camera_mclk);
+			err = device_create_file(&dev->dev, &dev_attr_msm_camera_pclk);
+			if(err)
+			{
+				CDBG("%s mclk sysfile creation is failed\n", __func__);
+				return err;
+			}
+		}
+#endif
 	}
 
 	pmsm = kzalloc(sizeof(struct msm_cam_device) * 3 +

@@ -8,6 +8,7 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/idr.h>
 #include <linux/slab.h>
 
