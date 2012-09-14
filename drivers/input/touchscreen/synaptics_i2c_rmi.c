@@ -215,12 +215,14 @@ static void synaptics_ts_work_func(struct work_struct *work)
 				input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, pos[0][1]);
 				input_mt_sync(ts->input_dev);
 				if (finger2_pressed) {
+					input_report_key(ts->input_dev, BTN_TOUCH, 0);
 					input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, z);
 					input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, w);
 					input_report_abs(ts->input_dev, ABS_MT_POSITION_X, pos[1][0]);
 					input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, pos[1][1]);
 					input_mt_sync(ts->input_dev);
 				} else if (ts->reported_finger_count > 1) {
+					input_report_key(ts->input_dev, BTN_TOUCH, 1);
 					input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
 					input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, 0);
 					input_mt_sync(ts->input_dev);
@@ -462,7 +464,7 @@ static int synaptics_ts_probe(
 	}
 	ts->input_dev->name = "synaptics-rmi-touchscreen";
 	set_bit(EV_SYN, ts->input_dev->evbit);
-	set_bit(EV_KEY, ts->input_dev->evbit);
+	set_bit(EV_KEY, ts->input_dev->keybit);
 	set_bit(BTN_TOUCH, ts->input_dev->keybit);
 	set_bit(BTN_2, ts->input_dev->keybit);
 	set_bit(EV_ABS, ts->input_dev->evbit);
@@ -509,6 +511,7 @@ static int synaptics_ts_probe(
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, -inactive_area_top, max_y + inactive_area_bottom, fuzz_y, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, fuzz_p, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR, 0, 15, fuzz_w, 0);
+	input_set_abs_params(ts->input_dev, ABS_MT_PRESSURE, 0, 255, 0, 0);
 	/* ts->input_dev->name = ts->keypad_info->name; */
 	ret = input_register_device(ts->input_dev);
 	if (ret) {
