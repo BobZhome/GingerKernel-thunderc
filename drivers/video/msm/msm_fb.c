@@ -369,8 +369,6 @@ static int msm_fb_probe(struct platform_device *pdev)
 	mfd->overlay_play_enable = 1;
 #endif
 
-	bf_supported = mdp4_overlay_borderfill_supported();
-
 	rc = msm_fb_register(mfd);
 	if (rc)
 		return rc;
