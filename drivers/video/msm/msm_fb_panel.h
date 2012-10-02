@@ -188,6 +188,7 @@ struct msm_fb_panel_data {
 	/* function entry chain */
 	int (*on) (struct platform_device *pdev);
 	int (*off) (struct platform_device *pdev);
+	void (*window_adjust)(u16 x1, u16 x2, u16 y1, u16 y2);
 	struct platform_device *next;
 	int (*clk_func) (int enable);
 };
